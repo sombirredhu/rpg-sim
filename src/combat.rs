@@ -131,9 +131,14 @@ pub fn enemy_attack_system(
 }
 
 /// System: Healer heroes heal nearby allies
+/// Uses QuerySet to avoid conflicting access to HeroStats
 pub fn healer_system(
-    mut healers: Query<(&Hero, &HeroStats, &Transform, &mut AttackCooldown)>,
-    mut allies: Query<(&mut HeroStats, &Transform), Without<Enemy>>,
+    mut query_set: QuerySet<(
+        // q0: read healer info
+        QueryState<(&Hero, &HeroStats, &Transform, &mut AttackCooldown)>,
+        // q1: write ally HP
+        QueryState<(&mut HeroStats, &Transform)>,
+    )>,
     game_time: Res<GameTime>,
     time: Res<Time>,
 ) {
@@ -142,9 +147,9 @@ pub fn healer_system(
         return;
     }
 
-    let mut heal_targets: Vec<(Vec2, f32, f32)> = Vec::new(); // (pos, range, heal_amount)
-
-    for (hero, healer_stats, healer_transform, mut cooldown) in healers.iter_mut() {
+    // Phase 1: Collect healer info from q0
+    let mut heal_targets: Vec<(Vec2, f32, f32)> = Vec::new();
+    for (hero, healer_stats, healer_transform, mut cooldown) in query_set.q0().iter_mut() {
         if hero.class != HeroClass::Healer {
             continue;
         }
@@ -160,9 +165,9 @@ pub fn healer_system(
         heal_targets.push((healer_pos, healer_stats.attack_range, heal_amount));
     }
 
-    // Apply heals
+    // Phase 2: Apply heals via q1
     for (healer_pos, range, heal_amount) in heal_targets {
-        for (mut ally_stats, ally_transform) in allies.iter_mut() {
+        for (mut ally_stats, ally_transform) in query_set.q1().iter_mut() {
             let ally_pos = Vec2::new(ally_transform.translation.x, ally_transform.translation.y);
             let dist = (ally_pos - healer_pos).length();
 
