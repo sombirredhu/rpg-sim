@@ -3,6 +3,27 @@ use crate::components::*;
 use crate::sprites::{SpriteAssets, spawn_hero_with_sprite};
 use std::f32::consts::TAU;
 
+fn apply_hero_facing(transform: &mut Transform, class: HeroClass, move_dir: Vec2) {
+    let base_scale = transform.scale.x.abs();
+    match class {
+        // Daniel warrior art faces opposite to the other hero sheets.
+        HeroClass::Warrior => {
+            if move_dir.x < 0.0 {
+                transform.scale.x = base_scale;
+            } else {
+                transform.scale.x = -base_scale;
+            }
+        }
+        _ => {
+            if move_dir.x < 0.0 {
+                transform.scale.x = -base_scale;
+            } else {
+                transform.scale.x = base_scale;
+            }
+        }
+    }
+}
+
 /// System: Hero AI decision-making
 /// Each hero evaluates bounties, threats, and personal needs to decide their next action
 pub fn hero_ai_system(
@@ -205,12 +226,7 @@ pub fn hero_movement_system(
                     transform.translation.x += move_dir.x * speed;
                     transform.translation.y += move_dir.y * speed;
 
-                    // Flip sprite based on direction
-                    if move_dir.x < 0.0 {
-                        transform.scale.x = -transform.scale.x.abs();
-                    } else {
-                        transform.scale.x = transform.scale.x.abs();
-                    }
+                    apply_hero_facing(&mut transform, _hero.class, move_dir);
                 }
             }
             HeroState::AttackingEnemy { target_entity } => {
@@ -227,6 +243,7 @@ pub fn hero_movement_system(
                         let speed = stats.speed * road_mult * dt;
                         transform.translation.x += move_dir.x * speed;
                         transform.translation.y += move_dir.y * speed;
+                        apply_hero_facing(&mut transform, _hero.class, move_dir);
                     }
                 } else {
                     // Enemy no longer exists
@@ -245,12 +262,7 @@ pub fn hero_movement_system(
                         let speed = stats.speed * road_mult * dt;
                         transform.translation.x += move_dir.x * speed;
                         transform.translation.y += move_dir.y * speed;
-
-                        if move_dir.x < 0.0 {
-                            transform.scale.x = -transform.scale.x.abs();
-                        } else {
-                            transform.scale.x = transform.scale.x.abs();
-                        }
+                        apply_hero_facing(&mut transform, _hero.class, move_dir);
                     }
                 } else {
                     *state = HeroState::Idle;

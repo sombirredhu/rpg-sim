@@ -396,15 +396,22 @@ pub fn update_alerts_ui(
 pub fn update_bounty_board_ui(
     game_phase: Res<GamePhase>,
     bounty_board: Res<BountyBoard>,
-    mut panel_query: Query<&mut Visibility, With<BountyBoardUi>>,
+    mut panel_query: Query<&mut Visibility, (With<BountyBoardUi>, Without<BountyBoardText>)>,
+    mut text_visibility_query: Query<&mut Visibility, (With<BountyBoardText>, Without<BountyBoardUi>)>,
     mut text_query: Query<&mut Text, With<BountyBoardText>>,
 ) {
     // Toggle panel visibility
     for mut vis in panel_query.iter_mut() {
         vis.is_visible = game_phase.bounty_board_open;
     }
+    for mut vis in text_visibility_query.iter_mut() {
+        vis.is_visible = game_phase.bounty_board_open;
+    }
 
     if !game_phase.bounty_board_open {
+        for mut text in text_query.iter_mut() {
+            text.sections[0].value.clear();
+        }
         return;
     }
 
@@ -534,7 +541,7 @@ pub fn build_menu_system(
 pub fn manual_bounty_system(
     mouse_input: Res<Input<MouseButton>>,
     windows: Res<Windows>,
-    camera: Query<(&Camera, &Transform, &OrthographicProjection), With<Camera>>,
+    camera: Query<(&Camera, &Transform, &OrthographicProjection), With<MainCamera>>,
     game_phase: Res<GamePhase>,
     mut bounty_board: ResMut<BountyBoard>,
     mut alerts: ResMut<GameAlerts>,
