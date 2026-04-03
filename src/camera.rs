@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use crate::components::MainCamera;
 
 /// Convert primary-window cursor coordinates into world-space coordinates for a 2D orthographic camera.
 pub fn cursor_to_world_2d(
@@ -16,7 +17,7 @@ pub fn cursor_to_world_2d(
 pub fn camera_control_system(
     keyboard: Res<Input<KeyCode>>,
     mut scroll_events: EventReader<bevy::input::mouse::MouseWheel>,
-    mut camera: Query<(&mut Transform, &mut OrthographicProjection), With<Camera>>,
+    mut camera: Query<(&mut Transform, &mut OrthographicProjection), With<MainCamera>>,
     time: Res<Time>,
 ) {
     let dt = time.delta_seconds();

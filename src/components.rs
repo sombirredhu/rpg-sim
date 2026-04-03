@@ -826,6 +826,9 @@ pub struct NightOverlay;
 #[derive(Component)]
 pub struct SpeedText;
 
+#[derive(Component)]
+pub struct MainCamera;
+
 // ============================================================
 // GAME EVENTS
 // ============================================================

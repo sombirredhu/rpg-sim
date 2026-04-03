@@ -138,7 +138,7 @@ pub fn spawn_hero_with_sprite(
             commands.spawn_bundle(SpriteSheetBundle {
                 texture_atlas: sprites.warrior_atlas.clone(),
                 transform: Transform::from_translation(position)
-                    .with_scale(Vec3::splat(1.5)),
+                    .with_scale(Vec3::new(-1.5, 1.5, 1.5)),
                 sprite: TextureAtlasSprite { index: 0, ..Default::default() },
                 ..Default::default()
             })

@@ -56,7 +56,7 @@ pub fn speed_control_system(
     mut alerts: ResMut<GameAlerts>,
 ) {
     // Let 1-9 keys drive build selection while the build menu is open.
-    if game_phase.show_build_menu {
+    if game_phase.show_build_menu || game_phase.build_mode || game_phase.bounty_board_open {
         return;
     }
 

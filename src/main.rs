@@ -138,7 +138,7 @@ fn main() {
 fn setup_camera(mut commands: Commands) {
     let mut camera = OrthographicCameraBundle::new_2d();
     camera.orthographic_projection.scale = 0.8;
-    commands.spawn_bundle(camera);
+    commands.spawn_bundle(camera).insert(MainCamera);
 }
 
 /// Spawn starting heroes using the real sprite assets
