@@ -4,7 +4,9 @@
 
 use bevy::prelude::*;
 use crate::components::*;
+use crate::camera::cursor_to_world_2d;
 use crate::sprites::{SpriteAssets, spawn_enemy_with_sprite};
+use std::collections::HashSet;
 use std::f32::consts::TAU;
 
 // ================================================================
@@ -16,14 +18,14 @@ pub fn road_placement_system(
     keyboard: Res<Input<KeyCode>>,
     mouse_input: Res<Input<MouseButton>>,
     windows: Res<Windows>,
-    camera: Query<(&Camera, &Transform), With<Camera>>,
+    camera: Query<(&Camera, &Transform, &OrthographicProjection), With<Camera>>,
     mut economy: ResMut<GameEconomy>,
     mut road_network: ResMut<RoadNetwork>,
     game_phase: Res<GamePhase>,
     mut _alerts: ResMut<GameAlerts>,
 ) {
     // Only place roads while holding R + left click
-    if game_phase.build_mode || !keyboard.pressed(KeyCode::R) {
+    if game_phase.build_mode || game_phase.show_build_menu || game_phase.bounty_board_open || !keyboard.pressed(KeyCode::R) {
         return;
     }
     if !mouse_input.pressed(MouseButton::Left) {
@@ -34,15 +36,11 @@ pub fn road_placement_system(
         Some(w) => w,
         None => return,
     };
-    let cursor_pos = match window.cursor_position() {
-        Some(p) => p,
-        None => return,
-    };
-
-    if let Ok((_cam, cam_t)) = camera.get_single() {
-        let ws = Vec2::new(window.width(), window.height());
-        let ndc = (cursor_pos / ws) * 2.0 - Vec2::ONE;
-        let world_pos = cam_t.translation.truncate() + ndc * ws * 0.3;
+    if let Ok((_cam, cam_t, projection)) = camera.get_single() {
+        let world_pos = match cursor_to_world_2d(window, cam_t, projection) {
+            Some(pos) => pos,
+            None => return,
+        };
 
         // Don't place if too close to existing road tile
         if road_network.is_on_road(world_pos) {
@@ -161,7 +159,7 @@ pub fn den_destruction_system(
 
             if dist < stats.attack_range + 20.0 {
                 // Hero is fighting near den — den takes chip damage
-                if matches!(state, HeroState::AttackingEnemy { .. }) {
+                if matches!(state, HeroState::AttackingEnemy { .. } | HeroState::PursuingBounty { .. }) {
                     den.hp -= stats.attack * 0.3 * dt;
                 }
             }
@@ -717,37 +715,35 @@ pub fn era_siege_system(
 
 pub fn torch_defense_system(
     buildings: Query<(&Building, &Transform)>,
-    mut heroes: Query<(&mut HeroStats, &Transform), With<Hero>>,
+    mut heroes: Query<(Entity, &mut HeroStats, &Transform), With<Hero>>,
     game_time: Res<GameTime>,
-    _time: Res<Time>,
-    mut applied: Local<bool>,
+    mut buffed_heroes: Local<HashSet<Entity>>,
 ) {
-    let is_night = game_time.is_night();
+    const TORCH_DEFENSE_BONUS: f32 = 3.0;
 
-    if is_night && !*applied {
-        *applied = true;
-        // Heroes near buildings get +3 defense at night
-        for (mut stats, hero_t) in heroes.iter_mut() {
+    if game_time.is_night() {
+        for (entity, mut stats, hero_t) in heroes.iter_mut() {
             let hpos = Vec2::new(hero_t.translation.x, hero_t.translation.y);
-            let near_building = buildings.iter().any(|(b, bt)| {
-                !b.is_destroyed && (Vec2::new(bt.translation.x, bt.translation.y) - hpos).length() < 100.0
+            let near_building = buildings.iter().any(|(building, transform)| {
+                !building.is_destroyed
+                    && (Vec2::new(transform.translation.x, transform.translation.y) - hpos).length() < 100.0
             });
+
             if near_building {
-                stats.defense += 3.0;
+                if buffed_heroes.insert(entity) {
+                    stats.defense += TORCH_DEFENSE_BONUS;
+                }
+            } else if buffed_heroes.remove(&entity) {
+                stats.defense -= TORCH_DEFENSE_BONUS;
             }
         }
-    } else if !is_night && *applied {
-        *applied = false;
-        // Remove the bonus
-        for (mut stats, hero_t) in heroes.iter_mut() {
-            let hpos = Vec2::new(hero_t.translation.x, hero_t.translation.y);
-            let near_building = buildings.iter().any(|(b, bt)| {
-                !b.is_destroyed && (Vec2::new(bt.translation.x, bt.translation.y) - hpos).length() < 100.0
-            });
-            if near_building {
-                stats.defense -= 3.0;
+    } else {
+        for (entity, mut stats, _) in heroes.iter_mut() {
+            if buffed_heroes.remove(&entity) {
+                stats.defense -= TORCH_DEFENSE_BONUS;
             }
         }
+        buffed_heroes.clear();
     }
 }
 
@@ -779,7 +775,7 @@ pub fn inspect_system(
     keyboard: Res<Input<KeyCode>>,
     mouse_input: Res<Input<MouseButton>>,
     windows: Res<Windows>,
-    camera: Query<(&Camera, &Transform), With<Camera>>,
+    camera: Query<(&Camera, &Transform, &OrthographicProjection), With<Camera>>,
     heroes: Query<(Entity, &Hero, &HeroStats, &HeroState, &Transform), Without<Building>>,
     buildings: Query<(Entity, &Building, &Transform), Without<Hero>>,
     enemies: Query<(Entity, &Enemy, &EnemyStats, &Transform), (Without<Hero>, Without<Building>)>,
@@ -793,15 +789,11 @@ pub fn inspect_system(
         Some(w) => w,
         None => return,
     };
-    let cursor = match window.cursor_position() {
-        Some(p) => p,
-        None => return,
-    };
-
-    if let Ok((_cam, cam_t)) = camera.get_single() {
-        let ws = Vec2::new(window.width(), window.height());
-        let ndc = (cursor / ws) * 2.0 - Vec2::ONE;
-        let world = cam_t.translation.truncate() + ndc * ws * 0.3;
+    if let Ok((_cam, cam_t, projection)) = camera.get_single() {
+        let world = match cursor_to_world_2d(window, cam_t, projection) {
+            Some(pos) => pos,
+            None => return,
+        };
 
         // Check heroes
         for (_e, hero, stats, state, t) in heroes.iter() {

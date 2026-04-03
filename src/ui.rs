@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::components::*;
+use crate::camera::cursor_to_world_2d;
 
 /// Startup: Create the HUD UI
 pub fn setup_ui(
@@ -468,6 +469,9 @@ pub fn build_menu_system(
             game_phase.selected_building = None;
             alerts.push("Build mode OFF".to_string());
         } else {
+            if !game_phase.show_build_menu {
+                game_phase.bounty_board_open = false;
+            }
             game_phase.show_build_menu = !game_phase.show_build_menu;
             if game_phase.show_build_menu {
                 let available = kingdom.rank.available_buildings();
@@ -485,9 +489,15 @@ pub fn build_menu_system(
     if game_phase.show_build_menu {
         let available = kingdom.rank.available_buildings();
         let key_map = [
-            (KeyCode::Key1, 0), (KeyCode::Key2, 1), (KeyCode::Key3, 2),
-            (KeyCode::Key4, 3), (KeyCode::Key5, 4), (KeyCode::Key6, 5),
-            (KeyCode::Key7, 6),
+            (KeyCode::Key1, 0), (KeyCode::Numpad1, 0),
+            (KeyCode::Key2, 1), (KeyCode::Numpad2, 1),
+            (KeyCode::Key3, 2), (KeyCode::Numpad3, 2),
+            (KeyCode::Key4, 3), (KeyCode::Numpad4, 3),
+            (KeyCode::Key5, 4), (KeyCode::Numpad5, 4),
+            (KeyCode::Key6, 5), (KeyCode::Numpad6, 5),
+            (KeyCode::Key7, 6), (KeyCode::Numpad7, 6),
+            (KeyCode::Key8, 7), (KeyCode::Numpad8, 7),
+            (KeyCode::Key9, 8), (KeyCode::Numpad9, 8),
         ];
 
         for (key, idx) in key_map {
@@ -496,6 +506,7 @@ pub fn build_menu_system(
                     game_phase.selected_building = Some(*building_type);
                     game_phase.build_mode = true;
                     game_phase.show_build_menu = false;
+                    game_phase.bounty_board_open = false;
                     alerts.push(format!(
                         "Placing {} - Click to build, Right-click to cancel",
                         building_type.display_name()
@@ -509,6 +520,9 @@ pub fn build_menu_system(
     if keyboard.just_pressed(KeyCode::Q) {
         game_phase.bounty_board_open = !game_phase.bounty_board_open;
         if game_phase.bounty_board_open {
+            game_phase.build_mode = false;
+            game_phase.show_build_menu = false;
+            game_phase.selected_building = None;
             alerts.push("Bounty Board open - Click on map to place bounty".to_string());
         } else {
             alerts.push("Bounty Board closed".to_string());
@@ -520,10 +534,9 @@ pub fn build_menu_system(
 pub fn manual_bounty_system(
     mouse_input: Res<Input<MouseButton>>,
     windows: Res<Windows>,
-    camera: Query<(&Camera, &Transform), With<Camera>>,
+    camera: Query<(&Camera, &Transform, &OrthographicProjection), With<Camera>>,
     game_phase: Res<GamePhase>,
     mut bounty_board: ResMut<BountyBoard>,
-    mut economy: ResMut<GameEconomy>,
     mut alerts: ResMut<GameAlerts>,
 ) {
     if !game_phase.bounty_board_open || game_phase.build_mode {
@@ -535,34 +548,25 @@ pub fn manual_bounty_system(
             Some(w) => w,
             None => return,
         };
-        let cursor_pos = match window.cursor_position() {
-            Some(p) => p,
-            None => return,
-        };
+        if let Ok((_camera, camera_transform, projection)) = camera.get_single() {
+            let world_pos = match cursor_to_world_2d(window, camera_transform, projection) {
+                Some(pos) => pos,
+                None => return,
+            };
 
-        if let Ok((_camera, camera_transform)) = camera.get_single() {
-            let window_size = Vec2::new(window.width(), window.height());
-            let ndc = (cursor_pos / window_size) * 2.0 - Vec2::ONE;
-            let world_pos = camera_transform.translation.truncate()
-                + ndc * Vec2::new(window_size.x, window_size.y) * 0.3;
+            let reward = 30.0;
+            bounty_board.add_bounty(
+                BountyType::Exploration,
+                reward,
+                world_pos,
+                None,
+                1,
+            );
 
-            let bounty_cost = 30.0;
-            if economy.gold >= bounty_cost {
-                economy.gold -= bounty_cost;
-                economy.total_spent += bounty_cost;
-
-                bounty_board.add_bounty(
-                    BountyType::Exploration,
-                    bounty_cost,
-                    world_pos,
-                    None,
-                    1,
-                );
-
-                alerts.push(format!("Bounty placed at ({:.0}, {:.0}) for {:.0} gold!", world_pos.x, world_pos.y, bounty_cost));
-            } else {
-                alerts.push("Not enough gold for bounty!".to_string());
-            }
+            alerts.push(format!(
+                "Exploration bounty posted at ({:.0}, {:.0}) for {:.0} gold reward",
+                world_pos.x, world_pos.y, reward
+            ));
         }
     }
 }

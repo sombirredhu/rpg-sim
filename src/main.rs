@@ -79,6 +79,7 @@ fn main() {
         .add_system(economy::kingdom_progression_system)
         .add_system(hero::hero_ai_system)
         .add_system(hero::hero_movement_system)
+        .add_system(hero::bounty_resolution_system)
         .add_system(hero::hero_rest_system)
         .add_system(hero::hero_progression_system)
         .add_system(hero::hero_attraction_system)

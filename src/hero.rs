@@ -7,7 +7,7 @@ use std::f32::consts::TAU;
 /// Each hero evaluates bounties, threats, and personal needs to decide their next action
 pub fn hero_ai_system(
     mut heroes: Query<(Entity, &mut Hero, &mut HeroStats, &mut HeroState, &mut HeroDecisionTimer, &Transform)>,
-    bounty_board: Res<BountyBoard>,
+    mut bounty_board: ResMut<BountyBoard>,
     game_time: Res<GameTime>,
     enemies: Query<(Entity, &Transform, &EnemyStats), With<Enemy>>,
     buildings: Query<(Entity, &Transform, &Building)>,
@@ -18,9 +18,10 @@ pub fn hero_ai_system(
         return;
     }
 
-    for (_hero_entity, mut hero, stats, mut state, mut decision_timer, transform) in heroes.iter_mut() {
+    for (hero_entity, mut hero, stats, mut state, mut decision_timer, transform) in heroes.iter_mut() {
         // Handle dead heroes
         if let HeroState::Dead { respawn_timer } = &mut *state {
+            bounty_board.unassign_hero(hero_entity);
             *respawn_timer -= dt;
             if *respawn_timer <= 0.0 {
                 *state = HeroState::Idle;
@@ -41,6 +42,7 @@ pub fn hero_ai_system(
 
         // Priority 1: If HP is very low, seek inn/rest
         if stats.hp < stats.max_hp * 0.25 {
+            bounty_board.unassign_hero(hero_entity);
             // Find nearest inn
             if let Some((_, inn_transform, _)) = buildings.iter()
                 .filter(|(_, _, b)| b.building_type == BuildingType::Inn && !b.is_destroyed)
@@ -62,15 +64,35 @@ pub fn hero_ai_system(
 
         // Priority 2: Low morale at night - refuse to leave inn
         if game_time.is_night() && hero.morale < 30.0 {
+            bounty_board.unassign_hero(hero_entity);
             *state = HeroState::Resting;
             continue;
+        }
+
+        let current_bounty_id = match &*state {
+            HeroState::PursuingBounty { bounty_id } => Some(*bounty_id),
+            _ => None,
+        };
+
+        if let Some(bounty_id) = current_bounty_id {
+            let still_valid = bounty_board
+                .get_bounty(bounty_id)
+                .map(|b| b.assigned_hero == Some(hero_entity))
+                .unwrap_or(false);
+
+            if still_valid {
+                continue;
+            }
+
+            bounty_board.unassign_hero(hero_entity);
+            *state = HeroState::Idle;
         }
 
         // Priority 3: Evaluate available bounties
         let available = bounty_board.available_bounties();
         if !available.is_empty() {
             // Score each bounty based on hero AI factors
-            let mut best_bounty: Option<(u32, f32, Vec2)> = None;
+            let mut best_bounty: Option<(u32, f32)> = None;
             let mut best_score = f32::MIN;
 
             for bounty in &available {
@@ -116,17 +138,13 @@ pub fn hero_ai_system(
 
                 if score > best_score {
                     best_score = score;
-                    best_bounty = Some((bounty.id, score, bounty.location));
+                    best_bounty = Some((bounty.id, score));
                 }
             }
 
-            if let Some((bounty_id, _score, location)) = best_bounty {
-                if best_score > 0.0 {
+            if let Some((bounty_id, _score)) = best_bounty {
+                if best_score > 0.0 && bounty_board.assign_bounty(bounty_id, hero_entity) {
                     *state = HeroState::PursuingBounty { bounty_id };
-                    // If not at bounty location, move there
-                    if (location - hero_pos).length() > 40.0 {
-                        *state = HeroState::MovingTo { target: location };
-                    }
                     continue;
                 }
             }
@@ -144,11 +162,13 @@ pub fn hero_ai_system(
                 da.partial_cmp(&db).unwrap()
             })
         {
+            bounty_board.unassign_hero(hero_entity);
             *state = HeroState::AttackingEnemy { target_entity: enemy_entity };
             continue;
         }
 
         // Priority 5: Idle - wander randomly
+        bounty_board.unassign_hero(hero_entity);
         let angle = rand::random::<f32>() * TAU;
         let wander_target = hero_pos + Vec2::new(angle.cos(), angle.sin()) * 60.0;
         *state = HeroState::MovingTo { target: wander_target };
@@ -159,6 +179,7 @@ pub fn hero_ai_system(
 pub fn hero_movement_system(
     mut heroes: Query<(&Hero, &HeroStats, &mut HeroState, &mut Transform)>,
     enemies: Query<&Transform, (With<Enemy>, Without<Hero>)>,
+    bounty_board: Res<BountyBoard>,
     road_network: Res<RoadNetwork>,
     game_time: Res<GameTime>,
     time: Res<Time>,
@@ -212,10 +233,123 @@ pub fn hero_movement_system(
                     *state = HeroState::Idle;
                 }
             }
+            HeroState::PursuingBounty { bounty_id } => {
+                if let Some(bounty) = bounty_board.get_bounty(*bounty_id) {
+                    let pos = Vec2::new(transform.translation.x, transform.translation.y);
+                    let dir = bounty.location - pos;
+                    let dist = dir.length();
+
+                    if dist > 5.0 {
+                        let move_dir = dir.normalize();
+                        let road_mult = road_network.speed_multiplier(pos);
+                        let speed = stats.speed * road_mult * dt;
+                        transform.translation.x += move_dir.x * speed;
+                        transform.translation.y += move_dir.y * speed;
+
+                        if move_dir.x < 0.0 {
+                            transform.scale.x = -transform.scale.x.abs();
+                        } else {
+                            transform.scale.x = transform.scale.x.abs();
+                        }
+                    }
+                } else {
+                    *state = HeroState::Idle;
+                }
+            }
             HeroState::Resting => {
                 // Stay still while resting
             }
             _ => {}
+        }
+    }
+}
+
+/// System: Resolve bounty completion conditions and emit payout events.
+pub fn bounty_resolution_system(
+    mut heroes: Query<(Entity, &mut HeroState, &Transform), With<Hero>>,
+    mut bounty_board: ResMut<BountyBoard>,
+    monster_dens: Query<Entity, With<MonsterDen>>,
+    resource_nodes: Query<&ResourceNode>,
+    buildings: Query<(&Building, &Transform)>,
+    enemies: Query<&Transform, With<Enemy>>,
+    mut events: EventWriter<BountyCompletedEvent>,
+) {
+    for (hero_entity, mut state, transform) in heroes.iter_mut() {
+        if matches!(&*state, HeroState::Dead { .. }) {
+            bounty_board.unassign_hero(hero_entity);
+            continue;
+        }
+
+        let bounty_id = match &*state {
+            HeroState::PursuingBounty { bounty_id } => *bounty_id,
+            _ => {
+                bounty_board.unassign_hero(hero_entity);
+                continue;
+            }
+        };
+
+        let bounty = match bounty_board.get_bounty(bounty_id).cloned() {
+            Some(bounty) => bounty,
+            None => {
+                *state = HeroState::Idle;
+                continue;
+            }
+        };
+
+        if bounty.assigned_hero != Some(hero_entity) {
+            *state = HeroState::Idle;
+            continue;
+        }
+
+        let hero_pos = Vec2::new(transform.translation.x, transform.translation.y);
+        let near_bounty = (hero_pos - bounty.location).length() <= 40.0;
+
+        let completed = match bounty.bounty_type {
+            BountyType::Exploration => near_bounty,
+            BountyType::Monster => {
+                if let Some(target) = bounty.target_entity {
+                    monster_dens.get(target).is_err()
+                } else {
+                    near_bounty
+                }
+            }
+            BountyType::Resource => {
+                if let Some(target) = bounty.target_entity {
+                    resource_nodes
+                        .get(target)
+                        .map(|node| node.is_active && near_bounty)
+                        .unwrap_or(true)
+                } else {
+                    near_bounty
+                }
+            }
+            BountyType::Objective => {
+                if let Some(target) = bounty.target_entity {
+                    if let Ok((building, building_transform)) = buildings.get(target) {
+                        let bpos = Vec2::new(building_transform.translation.x, building_transform.translation.y);
+                        let enemies_nearby = enemies.iter().any(|enemy_transform| {
+                            let epos = Vec2::new(enemy_transform.translation.x, enemy_transform.translation.y);
+                            (epos - bpos).length() < 150.0
+                        });
+                        near_bounty && !building.is_destroyed && !enemies_nearby
+                    } else {
+                        near_bounty
+                    }
+                } else {
+                    near_bounty
+                }
+            }
+        };
+
+        if completed {
+            if let Some(reward) = bounty_board.complete_bounty(bounty_id) {
+                events.send(BountyCompletedEvent {
+                    bounty_id,
+                    hero_entity,
+                    gold_reward: reward,
+                });
+            }
+            *state = HeroState::Idle;
         }
     }
 }
