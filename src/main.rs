@@ -7,6 +7,7 @@
 //! - Manage economy and defend against threats
 
 mod components;
+mod sprites;
 mod economy;
 mod hero;
 mod building;
@@ -18,6 +19,7 @@ mod camera;
 
 use bevy::prelude::*;
 use components::*;
+use sprites::SpriteAssets;
 
 fn main() {
     App::new()
@@ -29,7 +31,7 @@ fn main() {
         .insert_resource(KingdomState::default())
         .insert_resource(GamePhase::default())
         .insert_resource(GameAlerts::default())
-        .insert_resource(ClearColor(Color::rgb(0.15, 0.3, 0.15)))
+        .insert_resource(ClearColor(Color::rgb(0.18, 0.32, 0.15)))
         // Events
         .add_event::<BountyCompletedEvent>()
         .add_event::<HeroDeathEvent>()
@@ -37,13 +39,17 @@ fn main() {
         .add_event::<EnemyDeathEvent>()
         .add_event::<ThreatEscalationEvent>()
         .add_event::<HeroSpawnEvent>()
-        // Startup systems
+        // Startup systems (sprite loading MUST run first)
+        .add_startup_system(sprites::load_sprite_assets)
         .add_startup_system(setup_camera)
         .add_startup_system(ui::setup_ui)
-        .add_startup_system(building::spawn_initial_buildings)
-        .add_startup_system(enemy::spawn_initial_dens)
-        .add_startup_system(day_night::spawn_night_overlay)
-        .add_startup_system(spawn_initial_heroes)
+        // Deferred startup that needs SpriteAssets
+        .add_startup_system_to_stage(StartupStage::PostStartup, sprites::spawn_ground_tiles)
+        .add_startup_system_to_stage(StartupStage::PostStartup, sprites::spawn_trees)
+        .add_startup_system_to_stage(StartupStage::PostStartup, building::spawn_initial_buildings)
+        .add_startup_system_to_stage(StartupStage::PostStartup, enemy::spawn_initial_dens)
+        .add_startup_system_to_stage(StartupStage::PostStartup, spawn_initial_heroes)
+        .add_startup_system_to_stage(StartupStage::PostStartup, day_night::spawn_night_overlay)
         // Game logic systems
         .add_system(camera::camera_control_system)
         .add_system(day_night::day_night_cycle_system)
@@ -90,8 +96,11 @@ fn setup_camera(mut commands: Commands) {
     commands.spawn_bundle(camera);
 }
 
-/// Spawn a few starting heroes near the Town Hall
-fn spawn_initial_heroes(mut commands: Commands) {
+/// Spawn starting heroes using the real sprite assets
+fn spawn_initial_heroes(
+    mut commands: Commands,
+    sprites: Res<SpriteAssets>,
+) {
     let starting_heroes = [
         (HeroClass::Warrior, Vec2::new(40.0, -20.0)),
         (HeroClass::Warrior, Vec2::new(-30.0, 30.0)),
@@ -99,23 +108,11 @@ fn spawn_initial_heroes(mut commands: Commands) {
     ];
 
     for (class, offset) in starting_heroes {
-        let hero = Hero::new(class);
-        let stats = class.base_stats();
-        let color = class.color();
-
-        commands.spawn_bundle(SpriteBundle {
-            sprite: Sprite {
-                color,
-                custom_size: Some(Vec2::new(16.0, 24.0)),
-                ..Default::default()
-            },
-            transform: Transform::from_translation(Vec3::new(offset.x, offset.y, 10.0)),
-            ..Default::default()
-        })
-        .insert(hero)
-        .insert(stats)
-        .insert(HeroState::Idle)
-        .insert(HeroDecisionTimer::default())
-        .insert(AttackCooldown::default());
+        sprites::spawn_hero_with_sprite(
+            &mut commands,
+            &sprites,
+            class,
+            Vec3::new(offset.x, offset.y, 10.0),
+        );
     }
 }

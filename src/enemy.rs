@@ -1,12 +1,13 @@
 use bevy::prelude::*;
 use crate::components::*;
+use crate::sprites::{SpriteAssets, spawn_enemy_with_sprite};
 use std::f32::consts::TAU;
 
-/// System: Spawn enemies from monster dens
+/// System: Spawn enemies from monster dens using real sprites
 pub fn monster_den_spawn_system(
     mut commands: Commands,
     mut dens: Query<(Entity, &mut MonsterDen, &Transform)>,
-    _enemies: Query<&Enemy>,
+    sprites: Res<SpriteAssets>,
     game_time: Res<GameTime>,
     time: Res<Time>,
 ) {
@@ -18,7 +19,6 @@ pub fn monster_den_spawn_system(
     for (_entity, mut den, transform) in dens.iter_mut() {
         den.spawn_timer -= dt;
 
-        // Spawn faster at night
         let interval = den.spawn_interval / game_time.threat_multiplier();
 
         if den.spawn_timer <= 0.0 && den.current_spawned < den.max_spawned {
@@ -31,23 +31,12 @@ pub fn monster_den_spawn_system(
             );
             let spawn_pos = den_pos + offset;
 
-            let enemy_type = den.enemy_type;
-            let stats = enemy_type.stats();
-            let color = enemy_type.color();
-
-            commands.spawn_bundle(SpriteBundle {
-                sprite: Sprite {
-                    color,
-                    custom_size: Some(Vec2::new(14.0, 20.0)),
-                    ..Default::default()
-                },
-                transform: Transform::from_translation(Vec3::new(spawn_pos.x, spawn_pos.y, 8.0)),
-                ..Default::default()
-            })
-            .insert(Enemy { enemy_type })
-            .insert(stats)
-            .insert(EnemyAi::default())
-            .insert(AttackCooldown { timer: 0.0, interval: 1.5 });
+            spawn_enemy_with_sprite(
+                &mut commands,
+                &sprites,
+                den.enemy_type,
+                Vec3::new(spawn_pos.x, spawn_pos.y, 8.0),
+            );
 
             den.current_spawned += 1;
         }
@@ -73,11 +62,8 @@ pub fn enemy_ai_system(
         }
 
         let pos = Vec2::new(transform.translation.x, transform.translation.y);
-
-        // Look for nearby heroes or buildings to attack
         let mut nearest_target: Option<(Entity, Vec2, f32)> = None;
 
-        // Check heroes
         for (hero_entity, hero_transform) in heroes.iter() {
             let hero_pos = Vec2::new(hero_transform.translation.x, hero_transform.translation.y);
             let dist = (hero_pos - pos).length();
@@ -88,9 +74,8 @@ pub fn enemy_ai_system(
             }
         }
 
-        // Check buildings (especially at night or if enemy is a bandit)
         if nearest_target.is_none() || enemy.enemy_type == EnemyType::Bandit {
-            for (_building_entity, building_transform, building) in buildings.iter() {
+            for (building_entity, building_transform, building) in buildings.iter() {
                 if building.is_destroyed {
                     continue;
                 }
@@ -98,28 +83,28 @@ pub fn enemy_ai_system(
                 let dist = (bpos - pos).length();
                 if dist < 300.0 && (game_time.is_night() || enemy.enemy_type == EnemyType::Bandit) {
                     if nearest_target.is_none() || dist < nearest_target.unwrap().2 * 0.5 {
-                        nearest_target = Some((_building_entity, bpos, dist));
+                        nearest_target = Some((building_entity, bpos, dist));
                     }
                 }
             }
         }
 
-        if let Some((_target_entity, target_pos, dist)) = nearest_target {
-            ai.target = Some(_target_entity);
-            // Move toward target
+        if let Some((target_entity, target_pos, dist)) = nearest_target {
+            ai.target = Some(target_entity);
             if dist > stats.attack_range {
                 let dir = (target_pos - pos).normalize();
                 transform.translation.x += dir.x * stats.speed * dt;
                 transform.translation.y += dir.y * stats.speed * dt;
 
+                // Flip sprite based on movement direction
+                let base_scale = transform.scale.x.abs();
                 if dir.x < 0.0 {
-                    transform.scale.x = -transform.scale.x.abs();
+                    transform.scale.x = -base_scale;
                 } else {
-                    transform.scale.x = transform.scale.x.abs();
+                    transform.scale.x = base_scale;
                 }
             }
         } else {
-            // Wander
             ai.wander_timer -= dt;
             if ai.wander_timer <= 0.0 {
                 ai.wander_angle = rand::random::<f32>() * TAU;
@@ -144,23 +129,20 @@ pub fn threat_escalation_system(
     let dt = time.delta_seconds() * game_time.speed_multiplier;
     *escalation_timer -= dt;
 
-    // Check every "game week" (about 56 seconds at 1x speed = 7 game-days * 8 seconds per minute)
     if *escalation_timer > 0.0 {
         return;
     }
-    *escalation_timer = game_time.day_length; // One game-day between escalation checks
+    *escalation_timer = game_time.day_length;
 
     for mut den in dens.iter_mut() {
         den.weeks_unaddressed += 1;
 
-        // Escalate every 7 game-days
         if den.weeks_unaddressed >= 7 && den.threat_tier < 3 {
             den.threat_tier += 1;
             den.max_spawned += 2;
-            den.spawn_interval *= 0.8; // Spawn faster
+            den.spawn_interval *= 0.8;
             den.weeks_unaddressed = 0;
 
-            // Upgrade enemy type at tier 2
             if den.threat_tier >= 2 && den.enemy_type == EnemyType::Goblin {
                 den.enemy_type = EnemyType::GoblinElite;
             }
@@ -174,11 +156,12 @@ pub fn threat_escalation_system(
     }
 }
 
-/// System: Boss raid events
+/// System: Boss raid events - now with real boss sprite
 pub fn boss_raid_system(
     mut commands: Commands,
     game_time: Res<GameTime>,
     kingdom: Res<KingdomState>,
+    sprites: Res<SpriteAssets>,
     time: Res<Time>,
     mut boss_timer: Local<f32>,
     _boss_spawned: Local<bool>,
@@ -191,38 +174,27 @@ pub fn boss_raid_system(
         return;
     }
 
-    // Boss raid every ~5 game-days (only at City rank+)
     *boss_timer = game_time.day_length * 5.0;
 
     if matches!(kingdom.rank, KingdomRank::City | KingdomRank::Kingdom) {
-        // Spawn boss at map edge
         let angle = rand::random::<f32>() * TAU;
         let spawn_pos = Vec2::new(angle.cos() * 500.0, angle.sin() * 500.0);
 
-        let stats = EnemyType::BossWarlord.stats();
-        let color = EnemyType::BossWarlord.color();
+        spawn_enemy_with_sprite(
+            &mut commands,
+            &sprites,
+            EnemyType::BossWarlord,
+            Vec3::new(spawn_pos.x, spawn_pos.y, 9.0),
+        );
 
-        commands.spawn_bundle(SpriteBundle {
-            sprite: Sprite {
-                color,
-                custom_size: Some(Vec2::new(32.0, 40.0)),
-                ..Default::default()
-            },
-            transform: Transform::from_translation(Vec3::new(spawn_pos.x, spawn_pos.y, 9.0)),
-            ..Default::default()
-        })
-        .insert(Enemy { enemy_type: EnemyType::BossWarlord })
-        .insert(stats)
-        .insert(EnemyAi::default())
-        .insert(AttackCooldown { timer: 0.0, interval: 2.0 });
-
-        alerts.push("⚠ BOSS RAID! A Warlord approaches the kingdom!".to_string());
+        alerts.push("BOSS RAID! A Warlord approaches the kingdom!".to_string());
     }
 }
 
-/// Startup: Spawn initial monster dens around the map
+/// Startup: Spawn initial monster dens using RedBuilding sprite for dens
 pub fn spawn_initial_dens(
     mut commands: Commands,
+    sprites: Res<SpriteAssets>,
 ) {
     let den_positions = [
         (Vec2::new(300.0, 200.0), EnemyType::Goblin),
@@ -232,13 +204,12 @@ pub fn spawn_initial_dens(
     ];
 
     for (pos, enemy_type) in den_positions {
-        commands.spawn_bundle(SpriteBundle {
-            sprite: Sprite {
-                color: Color::rgb(0.3, 0.1, 0.1),
-                custom_size: Some(Vec2::new(32.0, 32.0)),
-                ..Default::default()
-            },
-            transform: Transform::from_translation(Vec3::new(pos.x, pos.y, 4.0)),
+        // Use RedBuilding small variant (index 1) for monster dens
+        commands.spawn_bundle(SpriteSheetBundle {
+            texture_atlas: sprites.building_red_atlas.clone(),
+            transform: Transform::from_translation(Vec3::new(pos.x, pos.y, 4.0))
+                .with_scale(Vec3::splat(0.5)),
+            sprite: TextureAtlasSprite { index: 1, ..Default::default() },
             ..Default::default()
         })
         .insert(MonsterDen::new(enemy_type));
@@ -261,11 +232,10 @@ pub fn enemy_death_system(
                 killer: None,
             });
 
-            // Decrement den spawn count
             for mut den in dens.iter_mut() {
                 if den.enemy_type == enemy.enemy_type && den.current_spawned > 0 {
                     den.current_spawned -= 1;
-                    den.weeks_unaddressed = 0; // Reset escalation when enemies are killed
+                    den.weeks_unaddressed = 0;
                     break;
                 }
             }

@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::components::*;
+use crate::sprites::{SpriteAssets, spawn_building_with_sprite};
 
 /// System: Handle building placement from build mode
 pub fn building_placement_system(
@@ -10,6 +11,7 @@ pub fn building_placement_system(
     mut economy: ResMut<GameEconomy>,
     mut game_phase: ResMut<GamePhase>,
     kingdom: Res<KingdomState>,
+    sprites: Res<SpriteAssets>,
     mut alerts: ResMut<GameAlerts>,
 ) {
     if !game_phase.build_mode {
@@ -22,7 +24,6 @@ pub fn building_placement_system(
     };
 
     if mouse_input.just_pressed(MouseButton::Left) {
-        // Get mouse world position
         let window = match windows.get_primary() {
             Some(w) => w,
             None => return,
@@ -36,56 +37,43 @@ pub fn building_placement_system(
             let window_size = Vec2::new(window.width(), window.height());
             let ndc = (cursor_pos / window_size) * 2.0 - Vec2::ONE;
             let world_pos = camera_transform.translation.truncate()
-                + ndc * Vec2::new(window_size.x, window_size.y) * 0.3; // 0.6 scale / 2
+                + ndc * Vec2::new(window_size.x, window_size.y) * 0.3;
 
-            // Check if we can afford it
             let cost = selected.cost();
             if economy.gold < cost {
                 alerts.push(format!("Not enough gold! Need {:.0}", cost));
                 return;
             }
 
-            // Check if building is available at current rank
             if !kingdom.rank.available_buildings().contains(&selected) {
                 alerts.push("Building not available at current rank!".to_string());
                 return;
             }
 
-            // Spend gold and place building
             economy.gold -= cost;
             economy.total_spent += cost;
 
-            let building = Building::new(selected);
-            let size = selected.size();
-            let color = selected.color();
-
-            commands.spawn_bundle(SpriteBundle {
-                sprite: Sprite {
-                    color,
-                    custom_size: Some(size),
-                    ..Default::default()
-                },
-                transform: Transform::from_translation(Vec3::new(world_pos.x, world_pos.y, 5.0)),
-                ..Default::default()
-            })
-            .insert(building);
+            spawn_building_with_sprite(
+                &mut commands,
+                &sprites,
+                selected,
+                Vec3::new(world_pos.x, world_pos.y, 5.0),
+            );
 
             alerts.push(format!("{} built for {:.0} gold!", selected.display_name(), cost));
 
-            // Exit build mode after placing
             game_phase.build_mode = false;
             game_phase.selected_building = None;
         }
     }
 
-    // Cancel build mode with right click
     if mouse_input.just_pressed(MouseButton::Right) {
         game_phase.build_mode = false;
         game_phase.selected_building = None;
     }
 }
 
-/// System: Building upgrade on double-click / key press
+/// System: Building upgrade on key press
 pub fn building_upgrade_system(
     keyboard: Res<Input<KeyCode>>,
     _mouse_input: Res<Input<MouseButton>>,
@@ -100,7 +88,6 @@ pub fn building_upgrade_system(
         return;
     }
 
-    // Press U to upgrade nearest building to cursor
     if !keyboard.just_pressed(KeyCode::U) {
         return;
     }
@@ -120,12 +107,11 @@ pub fn building_upgrade_system(
         let world_pos = camera_transform.translation.truncate()
             + ndc * Vec2::new(window_size.x, window_size.y) * 0.3;
 
-        // Upgrade first building within range
         for (mut building, transform) in buildings.iter_mut() {
             let pos = Vec2::new(transform.translation.x, transform.translation.y);
             let dist = (pos - world_pos).length();
 
-            if dist < 60.0 && building.tier < 3 && !building.is_destroyed {
+            if dist < 80.0 && building.tier < 3 && !building.is_destroyed {
                 let cost = building.building_type.upgrade_cost(building.tier + 1);
                 if economy.gold >= cost {
                     economy.gold -= cost;
@@ -150,7 +136,7 @@ pub fn building_upgrade_system(
 
 /// System: Repair destroyed buildings
 pub fn building_repair_system(
-    mut buildings: Query<&mut Building>,
+    mut buildings: Query<(&mut Building, &mut Visibility)>,
     mut economy: ResMut<GameEconomy>,
     time: Res<Time>,
     game_time: Res<GameTime>,
@@ -163,15 +149,16 @@ pub fn building_repair_system(
     }
     *repair_timer = 5.0;
 
-    for mut building in buildings.iter_mut() {
+    for (mut building, mut vis) in buildings.iter_mut() {
         if building.is_destroyed {
+            vis.is_visible = false; // Hide destroyed buildings
             let repair_cost = building.building_type.cost() * 0.5;
             if economy.gold >= repair_cost {
-                // Auto-repair if treasury allows
                 economy.gold -= repair_cost;
                 economy.total_spent += repair_cost;
                 building.is_destroyed = false;
                 building.hp = building.max_hp * 0.5;
+                vis.is_visible = true;
             }
         }
     }
@@ -190,7 +177,7 @@ pub fn guard_tower_attack_system(
     if *attack_timer > 0.0 {
         return;
     }
-    *attack_timer = 2.0; // Attack every 2 seconds
+    *attack_timer = 2.0;
 
     for (building, tower_transform) in towers.iter() {
         if building.building_type != BuildingType::GuardTower || building.is_destroyed {
@@ -201,7 +188,6 @@ pub fn guard_tower_attack_system(
         let range = 150.0 + building.tier as f32 * 50.0;
         let damage = 15.0 + building.tier as f32 * 10.0;
 
-        // Find and damage nearest enemy in range
         for (mut enemy_stats, enemy_transform) in enemies.iter_mut() {
             let enemy_pos = Vec2::new(enemy_transform.translation.x, enemy_transform.translation.y);
             let dist = (enemy_pos - tower_pos).length();
@@ -209,49 +195,21 @@ pub fn guard_tower_attack_system(
             if dist < range && enemy_stats.hp > 0.0 {
                 let actual_damage = (damage - enemy_stats.defense).max(1.0);
                 enemy_stats.hp -= actual_damage;
-                break; // One target per tower per attack
+                break;
             }
         }
     }
 }
 
-/// Startup system: Place the initial Town Hall
+/// Startup system: Place initial buildings using real sprites
 pub fn spawn_initial_buildings(
     mut commands: Commands,
+    sprites: Res<SpriteAssets>,
 ) {
-    // Town Hall - always at center
-    commands.spawn_bundle(SpriteBundle {
-        sprite: Sprite {
-            color: BuildingType::TownHall.color(),
-            custom_size: Some(BuildingType::TownHall.size()),
-            ..Default::default()
-        },
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 5.0)),
-        ..Default::default()
-    })
-    .insert(Building::new(BuildingType::TownHall));
-
-    // Start with an Inn nearby
-    commands.spawn_bundle(SpriteBundle {
-        sprite: Sprite {
-            color: BuildingType::Inn.color(),
-            custom_size: Some(BuildingType::Inn.size()),
-            ..Default::default()
-        },
-        transform: Transform::from_translation(Vec3::new(120.0, 30.0, 5.0)),
-        ..Default::default()
-    })
-    .insert(Building::new(BuildingType::Inn));
-
-    // And a Market
-    commands.spawn_bundle(SpriteBundle {
-        sprite: Sprite {
-            color: BuildingType::Market.color(),
-            custom_size: Some(BuildingType::Market.size()),
-            ..Default::default()
-        },
-        transform: Transform::from_translation(Vec3::new(-100.0, 50.0, 5.0)),
-        ..Default::default()
-    })
-    .insert(Building::new(BuildingType::Market));
+    // Town Hall at center
+    spawn_building_with_sprite(&mut commands, &sprites, BuildingType::TownHall, Vec3::new(0.0, 0.0, 5.0));
+    // Inn nearby
+    spawn_building_with_sprite(&mut commands, &sprites, BuildingType::Inn, Vec3::new(150.0, 30.0, 5.0));
+    // Market
+    spawn_building_with_sprite(&mut commands, &sprites, BuildingType::Market, Vec3::new(-130.0, 50.0, 5.0));
 }

@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::components::*;
+use crate::sprites::{SpriteAssets, spawn_hero_with_sprite};
 use std::f32::consts::TAU;
 
 /// System: Hero AI decision-making
@@ -300,12 +301,13 @@ pub fn hero_progression_system(
     }
 }
 
-/// System: Spawn heroes when buildings attract them
+/// System: Spawn heroes when buildings attract them (uses real sprites)
 pub fn hero_attraction_system(
     mut commands: Commands,
     buildings: Query<(&Building, &Transform)>,
     heroes: Query<&Hero>,
     kingdom: Res<KingdomState>,
+    sprites: Res<SpriteAssets>,
     game_time: Res<GameTime>,
     time: Res<Time>,
     mut spawn_timer: Local<f32>,
@@ -316,14 +318,13 @@ pub fn hero_attraction_system(
     if *spawn_timer > 0.0 {
         return;
     }
-    *spawn_timer = 15.0 + rand::random::<f32>() * 15.0; // Every 15-30 seconds
+    *spawn_timer = 15.0 + rand::random::<f32>() * 15.0;
 
     let current_heroes = heroes.iter().count() as u32;
     if current_heroes >= kingdom.rank.max_heroes() {
         return;
     }
 
-    // Gather which classes are attracted by current buildings
     let mut attracted_classes: Vec<(HeroClass, Vec2)> = Vec::new();
     for (building, transform) in buildings.iter() {
         if building.is_destroyed {
@@ -336,40 +337,25 @@ pub fn hero_attraction_system(
     }
 
     if attracted_classes.is_empty() {
-        // Always have a chance for a basic warrior
         attracted_classes.push((HeroClass::Warrior, Vec2::ZERO));
     }
 
-    // Pick a random class from available attractions
     let idx = (rand::random::<f32>() * attracted_classes.len() as f32) as usize;
     let idx = idx.min(attracted_classes.len() - 1);
     let (class, spawn_near) = attracted_classes[idx];
 
-    // Spawn near the building that attracted them
     let offset = Vec2::new(
         (rand::random::<f32>() - 0.5) * 60.0,
         (rand::random::<f32>() - 0.5) * 60.0,
     );
     let spawn_pos = spawn_near + offset;
 
-    let hero = Hero::new(class);
-    let stats = class.base_stats();
-    let color = class.color();
-
-    commands.spawn_bundle(SpriteBundle {
-        sprite: Sprite {
-            color,
-            custom_size: Some(Vec2::new(16.0, 24.0)),
-            ..Default::default()
-        },
-        transform: Transform::from_translation(Vec3::new(spawn_pos.x, spawn_pos.y, 10.0)),
-        ..Default::default()
-    })
-    .insert(hero)
-    .insert(stats)
-    .insert(HeroState::Idle)
-    .insert(HeroDecisionTimer::default())
-    .insert(AttackCooldown::default());
+    spawn_hero_with_sprite(
+        &mut commands,
+        &sprites,
+        class,
+        Vec3::new(spawn_pos.x, spawn_pos.y, 10.0),
+    );
 
     alerts.push(format!("A new {} has arrived!", class.display_name()));
 }
