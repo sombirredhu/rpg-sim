@@ -2,3 +2,8 @@
 **/*.rs.bk
 .idea
 /assets/world
+.env
+*.log
+target/
+target-codex/
+target-codex-check/

@@ -1,0 +1,243 @@
+
+⚔️  REALM OF BOUNTIES
+Game Design Concept Document
+Version 1.0  |  2D Mobile Kingdom Simulation
+Genre	2D Mobile Kingdom Simulation / Indirect Strategy
+
+Platform	iOS & Android (Mobile-First)
+
+Inspiration	Majesty: The Fantasy Kingdom Sim
+
+Target Audience	Casual to mid-core strategy players, ages 14+
+
+Session Length	5 – 20 minutes per session
+
+Monetisation	Free-to-play with optional cosmetic IAP
+
+1. Game Overview
+Realm of Bounties is a 2D top-down mobile kingdom simulation where the player rules as a king — but never gives direct orders. Instead of micromanaging soldiers, the player builds a thriving town, attracts a diverse roster of autonomous heroes, and influences their behaviour by placing gold bounties on threats, objectives, and exploration targets.
+
+Heroes live their own lives — they rest at inns, shop at markets, pray at temples, and venture out to earn bounties. The king's job is to create the right environment, manage the economy wisely, and set priorities through the bounty system so the kingdom survives and grows.
+
+Core Design Pillar
+You are the ruler, not the soldier. You govern by incentive, infrastructure, and resource management — never by direct command.
+
+2. Core Gameplay Loop
+Each session follows a satisfying cycle that scales from a quick 5-minute check-in to a deep 20-minute strategy session.
+
+Step 1 — Build & Expand
+•	Construct and upgrade town buildings to unlock new hero classes and income streams.
+•	Plan road networks to connect buildings and speed up hero movement.
+•	Expand the map perimeter to reveal new monster zones and resource deposits.
+
+Step 2 — Attract Heroes
+•	Heroes arrive at the town gate when the right buildings exist (e.g., inn attracts warriors, wizard tower attracts mages).
+•	Each hero has individual stats, personality traits, and preferences that affect their behaviour.
+•	Assign heroes to guilds or leave them free-roaming.
+
+Step 3 — Set Bounties
+•	Open the Bounty Board and place gold rewards on monster dens, ruins, resource nodes, or boss threats.
+•	Heroes autonomously evaluate bounties based on their risk tolerance, current gold, and skill set.
+•	Adjust bounty amounts dynamically to shift hero focus when a new threat emerges.
+
+Step 4 — Manage Economy
+•	Collect taxes from buildings and market trade.
+•	Balance spending between bounties, building upgrades, and emergency reserves.
+•	Avoid bankruptcy — heroes without bounties go idle, and idle heroes leave the kingdom.
+
+Step 5 — Survive Threats
+•	Goblins, bandits, and monsters attack in waves, especially at night.
+•	Boss events trigger periodically and require coordinated bounty investment to repel.
+•	Destroyed buildings cost gold to repair and set back the town's progress.
+
+3. Indirect Control System
+The indirect control system is the defining mechanic of Realm of Bounties. The player never taps a hero and says 'go here.' Instead, heroes are driven by an internal AI that weighs multiple factors before choosing an action.
+
+3.1 Hero Decision-Making AI
+Each hero evaluates the following inputs every few seconds to decide their next action:
+•	Bounty value — higher rewards attract braver, more capable heroes.
+•	Perceived danger — low-level heroes avoid high-threat zones unless the bounty is exceptional.
+•	Current needs — hungry, injured, or low-morale heroes prioritise self-care over combat.
+•	Hero personality — a Brave warrior ignores danger penalties; a Cautious rogue demands higher pay.
+•	Distance — heroes prefer nearby targets unless the reward clearly justifies travel time.
+
+3.2 Bounty Board
+The Bounty Board is the player's primary tool for influencing the world. It lists all active bounties categorised by type:
+•	Monster Bounties — placed on goblin camps, troll lairs, bandit hideouts, and boss spawn points.
+•	Exploration Bounties — reward heroes for scouting fog-of-war tiles and discovering ruins.
+•	Objective Bounties — special missions such as escorting a merchant or defending a building.
+•	Resource Bounties — incentivise heroes to gather materials from distant deposits.
+
+Design Note
+The bounty amount is never wasted gold — it is paid only upon task completion, so the player always has visibility into their ROI before committing.
+
+4. Hero Classes
+Five hero classes are available, each fulfilling a distinct role in the kingdom. Heroes level up through successful bounty completions, unlocking passive perks and improved stats.
+
+Class	Role	Combat Style	Special Ability
+Warrior	Front-line tank	Melee — charges enemies, holds aggro	Fortify: temporary damage reduction aura
+Archer	Ranged DPS	Ranged — kites enemies, hits flying units	Volley: AoE arrow rain on clustered enemies
+Mage	AoE damage	Spells — high burst, needs wizard tower	Arcane Surge: channelled multi-target blast
+Rogue	Scout / assassin	Stealth — enters camps unseen, priority kills	Backstab: critical hit on unaware enemies
+Healer	Support / sustain	Passive — follows party, heals low-HP allies	Sanctuary: healing pulse that revives fallen heroes
+
+4.1 Hero Progression
+•	Heroes gain XP from completing bounties, clearing camps, and surviving combat.
+•	Every 5 levels, a hero earns a Perk Point to spend on class-specific upgrades.
+•	Veteran heroes (level 10+) become Legendary — their portrait gains a golden border and their stats are significantly boosted.
+•	If a hero dies, they are incapacitated for a period rather than permanently lost — unless the player neglects to pay their recovery bounty.
+
+5. Town Building & Structures
+The town is built on a grid-based map. Each building serves a functional role in the economy, hero attraction, or defensive capability. Buildings can be upgraded up to three tiers, each unlocking new bonuses.
+
+Building	Cost	Function	Unlock
+Town Hall	Starting	Core hub — sets kingdom level cap; upgrades unlock map expansions	Always available
+Inn	150 gold	Attracts warriors & rogues; heroes rest here to restore HP and morale	Town Hall Tier 1
+Market	200 gold	Generates passive tax income; attracts merchants and trade events	Town Hall Tier 1
+Temple	250 gold	Attracts healers; provides morale boost aura to nearby buildings	Town Hall Tier 2
+Guard Tower	300 gold	Automated arrow defense; slows enemy advances near the town core	Inn Tier 1
+Wizard Tower	400 gold	Attracts mages; unlocks arcane research upgrades	Temple Tier 1
+Blacksmith	350 gold	Boosts hero attack and armor; enables equipment crafting	Inn Tier 2
+Alchemist	300 gold	Crafts potions for heroes; reduces hero recovery time	Temple Tier 2
+Barracks	450 gold	Increases hero party cap; enables squad formation bounties	Guard Tower Tier 2
+
+5.1 Building Upgrade Tiers
+•	Tier 1 — Improves base function (e.g., Inn Tier 1: heals 50% faster, attracts 1 extra hero slot).
+•	Tier 2 — Unlocks a new passive ability (e.g., Market Tier 2: trade caravans arrive weekly with rare items).
+•	Tier 3 — Major transformation (e.g., Temple Tier 3 becomes Cathedral — generates 50 gold/day via pilgrim income).
+
+5.2 Road Network
+•	Paved roads increase hero and merchant movement speed by 30%.
+•	Roads connecting buildings improve the efficiency of supply chains (market tax bonus, blacksmith craft speed).
+•	Players can build bridges to cross rivers and open new map sectors.
+
+6. Economy & Resource Management
+Gold is the single resource in Realm of Bounties. Managing its flow — income vs. expenditure — is the primary strategic challenge for the player.
+
+6.1 Income Sources
+•	Property Tax — each building generates a small daily gold income based on its tier.
+•	Market Trade — merchants arrive periodically and pay a trade fee proportional to town level.
+•	Bounty Taxes — a small percentage of completed bounties is returned to the treasury as a transaction fee.
+•	Event Rewards — completing kingdom milestones (e.g., clear the goblin forest) grants one-time gold bonuses.
+•	Resource Nodes — mining camps and lumber mills generate passive income if heroes keep them safe.
+
+6.2 Expenditure
+•	Building construction and upgrades — the primary long-term investment.
+•	Bounty payments — paid only on successful completion, so risk is manageable.
+•	Emergency repairs — damaged buildings cost gold to restore.
+•	Hero recruitment — some high-tier heroes require a signing bonus to join the kingdom.
+
+Economy Tip
+Never let your treasury reach zero. Keep at least 200 gold in reserve at all times — a boss raid can destroy multiple buildings simultaneously, and repair costs stack fast.
+
+7. Enemies & Threat System
+The world outside the town walls is dangerous and dynamic. Threats spawn at monster zones on the map and escalate in power over time if left unaddressed. The player must continuously set bounties to keep threats in check.
+
+7.1 Enemy Types
+•	Goblin Rabble — Goblins
+•	Weak individually; spawn in large numbers from goblin camps. High bounty efficiency for low-level heroes.
+•	Bandit Gang — Bandits
+•	Organised attackers that target the market and road caravans. Mid-tier threat; require warriors or rogues.
+•	Cave Troll — Trolls
+•	Tanky, slow monsters that destroy guard towers on contact. Require a party of mixed heroes to defeat.
+•	Den of Beasts — Monster Lair
+•	Persistent spawn point that generates monsters every night until cleared. High bounty priority recommended.
+•	Dungeon Lord Raid — Boss Events
+•	End-of-era events where a powerful boss marches on the town. All bounties on the boss stack, and all hero classes can participate.
+
+7.2 Threat Escalation
+Every in-game week that a threat zone goes unaddressed, it escalates one tier. An uncleared goblin camp becomes a Goblin Stronghold with elite units. A Stronghold, if still ignored, spawns a Goblin Warlord who launches direct raids on the town.
+
+7.3 Dynamic Spawning
+•	Threats spawn from the map edges and from existing monster dens.
+•	Higher-difficulty threats spawn at night and during stormy weather events.
+•	Clearing a lair permanently removes its spawn point, but new lairs can appear in newly explored zones.
+
+8. Day / Night Cycle
+Time progresses in real-time during a session. One full in-game day passes every 8 minutes of play. The cycle creates a rhythm of growth and survival.
+
+8.1 Daytime
+•	Heroes are most active and earn full bounty income.
+•	Merchants, caravans, and pilgrims visit the town — generating passive income events.
+•	Building construction and upgrades proceed at normal speed.
+•	Threat activity is at its lowest — a safe window for expansion and exploration.
+
+8.2 Nighttime
+•	Threat spawn rates increase by 50%.
+•	Some enemy types (werewolves, shadow bandits) only spawn at night.
+•	Heroes with low morale may refuse to leave the inn after dark unless the bounty is very high.
+•	The town automatically lights torches — buildings within the town's light radius receive a small defense bonus.
+
+Strategy Tip
+Use the day to build and place exploration bounties. Before nightfall, redirect your bounty budget toward high-value monster bounties to ensure your heroes are motivated to defend the kingdom perimeter.
+
+9. Mobile-First User Interface
+Every UI element in Realm of Bounties is designed for one-handed play on a smartphone. The game supports both portrait and landscape orientations with adaptive layouts.
+
+9.1 Main HUD
+•	Gold Counter — always visible in the top bar with a clear income-per-minute indicator.
+•	Day/Night Clock — a simple sun/moon arc shows the current time of day at a glance.
+•	Hero Panel — collapsible side panel showing all active heroes, their status, and current task.
+•	Alert System — non-intrusive toast notifications for threat escalations, building completions, and bounty payouts.
+
+9.2 Interaction Design
+•	All tap targets are a minimum of 48×48pt for accessibility compliance.
+•	Long-press on any building or hero shows a contextual info card with quick-action buttons.
+•	The bounty board is accessible via a single large floating action button — the most important screen in the game.
+•	Drag-and-drop road placement with snap-to-grid for comfortable mobile use.
+
+9.3 Session Design
+•	Offline Progress — the kingdom continues earning passive income and heroes keep working when the player is away.
+•	Push Notifications — optional alerts for boss raid warnings, building completions, and treasury criticals.
+•	Auto-Save — state is saved every 30 seconds; no risk of progress loss.
+•	Speed Toggle — players can run time at 1×, 2×, or pause during planning phases.
+
+10. Kingdom Progression & Win Conditions
+10.1 Kingdom Rank
+The kingdom progresses through five Rank tiers, each unlocking new map zones, enemy types, and building blueprints:
+•	Rank 1 — Hamlet: Starting area, basic threats, 3 building types available.
+•	Rank 2 — Village: Forest zone unlocked, bandits appear, Inn and Market unlocked.
+•	Rank 3 — Town: Mountain zone, trolls spawn, Temple and Guard Tower unlocked.
+•	Rank 4 — City: Dungeon zone, boss events begin, all buildings available.
+•	Rank 5 — Kingdom: Endgame content, legendary heroes, realm-wide boss campaigns.
+
+10.2 Era System
+Each game is structured as an Era — a run lasting approximately 30–60 in-game days. At the end of an Era, the Dungeon Lord launches a final siege. Surviving it completes the Era and awards a score based on kingdom wealth, heroes alive, and buildings standing.
+
+10.3 Roguelite Meta Layer
+•	Era completion awards Legacy Points spent on permanent bonuses (e.g., +10% tax income, heroes start at level 2).
+•	Each new Era begins fresh but carries forward Legacy upgrades, giving a sense of long-term progression.
+•	Special challenge Eras offer unique modifiers: 'No Inns', 'Double Bounties', 'Permanent Death'.
+
+11. Art Direction & Audio
+11.1 Visual Style
+•	Hand-painted pixel art with a warm, storybook medieval palette.
+•	Animated building interiors visible through windows — flickering fires, moving silhouettes.
+•	Heroes have distinct 32×32 sprites with full walk, attack, idle, and rest animation sets.
+•	Day/night lighting implemented via a real-time colour overlay with soft torch halos.
+
+11.2 Audio Design
+•	Adaptive music: calm acoustic lute during daytime; tense orchestral strings at night.
+•	Each hero class has unique footstep and combat sound effects.
+•	Town ambience: distant merchants calling, blacksmith hammering, temple bells — all layered by building count.
+•	Boss raid siren — a distinct dramatic horn that alerts the player to begin bounty preparation.
+
+12. Monetisation Strategy
+Realm of Bounties is free-to-play with a monetisation model that never sells power or creates pay-to-win advantages.
+
+•	Cosmetic Hero Skins — alternate visual skins for each hero class (purely visual, no stat changes).
+•	Kingdom Themes — alternative art packs for buildings (e.g., desert, frost, volcanic biome themes).
+•	Speed-Up Pass — a one-time purchase that permanently unlocks 3× speed (convenience, not advantage).
+•	Battle Pass — seasonal story content with cosmetic rewards earned through normal gameplay.
+
+Monetisation Principle
+Every premium item is either cosmetic or a convenience unlock. No bounty boosts, no hero power, no pay-to-skip core mechanics. The game is fully completable without spending.
+
+13. Unique Selling Points
+•	Genuinely Indirect Control — a rare mechanic on mobile; no other top-grossing mobile title uses a pure bounty-based influence system.
+•	Autonomous Hero Drama — heroes have lives; they can refuse missions, fall in love at the inn, or flee in panic, creating emergent storytelling.
+•	No Energy Gates — sessions are self-paced; the game never forces the player to stop.
+•	Deep Without Being Complex — core loop is learned in 2 minutes; mastery takes months.
+•	Roguelite Replayability — no two Eras play the same thanks to randomised threat positions, hero arrivals, and event timing.
+
+Realm of Bounties  •  Game Design Concept v1.0  •  Confidential
