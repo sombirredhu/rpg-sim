@@ -122,6 +122,7 @@ fn main() {
         .add_system(features::sprite_animation_system)
         .add_system(features::inspect_system)
         .add_system(features::fog_of_war_system)
+        .add_system(features::map_expansion_system)
         // UI systems
         .add_system(ui::update_gold_ui)
         .add_system(ui::update_day_night_ui)

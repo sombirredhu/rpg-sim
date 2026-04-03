@@ -686,6 +686,22 @@ impl KingdomRank {
         }
     }
 
+    /// Maximum number of map expansions allowed at this rank
+    pub fn max_expansions(&self) -> u32 {
+        match self {
+            KingdomRank::Hamlet => 1,
+            KingdomRank::Village => 2,
+            KingdomRank::Town => 3,
+            KingdomRank::City => 4,
+            KingdomRank::Kingdom => 5,
+        }
+    }
+
+    /// Gold cost for the next map expansion (scales with expansion count)
+    pub fn expansion_cost(expansion_number: u32) -> f32 {
+        100.0 + expansion_number as f32 * 75.0
+    }
+
     pub fn available_buildings(&self) -> Vec<BuildingType> {
         match self {
             KingdomRank::Hamlet => vec![BuildingType::TownHall, BuildingType::Inn, BuildingType::Market],
@@ -947,6 +963,7 @@ pub struct Merchant {
 pub struct FogOfWar {
     pub revealed_radius: f32, // How far from town center is revealed
     pub explored_areas: Vec<Vec2>, // Additional explored locations
+    pub expansions: u32, // Number of times the player has expanded the map
 }
 
 impl Default for FogOfWar {
@@ -954,6 +971,7 @@ impl Default for FogOfWar {
         Self {
             revealed_radius: 300.0,
             explored_areas: Vec::new(),
+            expansions: 0,
         }
     }
 }
