@@ -39,8 +39,7 @@ pub fn hero_attack_system(
                             }
                         }
                         HeroClass::Warrior => {
-                            // Fortify: slight damage reduction on self (handled elsewhere)
-                            damage *= 1.1; // Consistent damage
+                            // Warriors focus on protecting allies via Fortify aura
                         }
                         HeroClass::Mage => {
                             // Arcane Surge: AoE potential (simplified to bonus damage)
@@ -97,7 +96,8 @@ pub fn enemy_attack_system(
                 let dist = (hero_pos - enemy_pos).length();
 
                 if dist <= stats.attack_range && hero_stats.hp > 0.0 {
-                    let damage = (stats.attack - hero_stats.defense).max(1.0);
+                    let base_damage = (stats.attack - hero_stats.defense).max(1.0);
+                    let damage = base_damage * (1.0 - hero_stats.fortify_reduction);
                     hero_stats.hp -= damage;
 
                     if hero_stats.hp <= 0.0 {
@@ -176,6 +176,44 @@ pub fn healer_system(
                 break;
             }
         }
+    }
+}
+
+/// Fortify aura radius in world units
+const FORTIFY_AURA_RADIUS: f32 = 100.0;
+/// Damage reduction percentage per nearby warrior (20%)
+const FORTIFY_REDUCTION_PER_WARRIOR: f32 = 0.2;
+/// Maximum fortify damage reduction cap (40%)
+const FORTIFY_REDUCTION_CAP: f32 = 0.4;
+
+/// System: Warriors emit a Fortify aura that grants nearby allies damage reduction.
+/// Recalculated every frame so the buff is always spatially accurate.
+/// Uses QuerySet to avoid conflicting access to Hero + HeroStats.
+pub fn warrior_fortify_aura_system(
+    mut query_set: QuerySet<(
+        // q0: read warrior positions
+        QueryState<(&Hero, &HeroStats, &Transform)>,
+        // q1: write fortify_reduction on all heroes
+        QueryState<(&mut HeroStats, &Transform)>,
+    )>,
+) {
+    // Phase 1: Collect warrior positions (only living warriors)
+    let mut warrior_positions: Vec<Vec2> = Vec::new();
+    for (hero, stats, transform) in query_set.q0().iter() {
+        if hero.class == HeroClass::Warrior && stats.hp > 0.0 {
+            warrior_positions.push(Vec2::new(transform.translation.x, transform.translation.y));
+        }
+    }
+
+    // Phase 2: For each hero, count nearby warriors and set fortify_reduction
+    for (mut hero_stats, transform) in query_set.q1().iter_mut() {
+        let hero_pos = Vec2::new(transform.translation.x, transform.translation.y);
+        let nearby_warriors = warrior_positions.iter().filter(|wp| {
+            (**wp - hero_pos).length() <= FORTIFY_AURA_RADIUS
+        }).count();
+
+        hero_stats.fortify_reduction = (nearby_warriors as f32 * FORTIFY_REDUCTION_PER_WARRIOR)
+            .min(FORTIFY_REDUCTION_CAP);
     }
 }
 

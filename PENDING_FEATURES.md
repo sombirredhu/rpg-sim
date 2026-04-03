@@ -36,7 +36,7 @@
 - [x] Mage Arcane Surge (bonus damage)
 - [x] Warrior Fortify (consistent damage bonus)
 - [x] Healer healing nearby allies
-- [ ] Warrior Fortify as damage reduction AURA for nearby allies
+- [x] Warrior Fortify as damage reduction AURA for nearby allies
 - [ ] Archer Volley as actual AoE arrow rain on clustered enemies
 - [ ] Mage Arcane Surge as channelled multi-target blast
 - [ ] Healer Sanctuary ability (healing pulse that revives fallen heroes)
