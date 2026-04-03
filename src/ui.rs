@@ -131,6 +131,42 @@ pub fn setup_ui(
                 .insert(HeroPanelText);
             });
 
+            // ===== BOUNTY BOARD PANEL (left side) =====
+            parent.spawn_bundle(NodeBundle {
+                style: Style {
+                    size: Size::new(Val::Px(260.0), Val::Auto),
+                    max_size: Size::new(Val::Px(260.0), Val::Px(400.0)),
+                    position_type: PositionType::Absolute,
+                    position: Rect {
+                        left: Val::Px(5.0),
+                        top: Val::Px(50.0),
+                        ..Default::default()
+                    },
+                    padding: Rect::all(Val::Px(8.0)),
+                    flex_direction: FlexDirection::ColumnReverse,
+                    ..Default::default()
+                },
+                color: UiColor(Color::rgba(0.0, 0.0, 0.0, 0.75)),
+                visibility: Visibility { is_visible: false },
+                ..Default::default()
+            })
+            .insert(BountyBoardUi)
+            .with_children(|panel| {
+                panel.spawn_bundle(TextBundle {
+                    text: Text::with_section(
+                        "Bounty Board",
+                        TextStyle {
+                            font: font.clone(),
+                            font_size: 16.0,
+                            color: Color::rgb(1.0, 0.85, 0.0),
+                        },
+                        TextAlignment::default(),
+                    ),
+                    ..Default::default()
+                })
+                .insert(BountyBoardText);
+            });
+
             // ===== ALERT TEXT (bottom center) =====
             parent.spawn_bundle(NodeBundle {
                 style: Style {
@@ -352,6 +388,69 @@ pub fn update_alerts_ui(
 
     for mut text in text_query.iter_mut() {
         text.sections[0].value = display.clone();
+    }
+}
+
+/// System: Update bounty board panel visibility and content
+pub fn update_bounty_board_ui(
+    game_phase: Res<GamePhase>,
+    bounty_board: Res<BountyBoard>,
+    mut panel_query: Query<&mut Visibility, With<BountyBoardUi>>,
+    mut text_query: Query<&mut Text, With<BountyBoardText>>,
+) {
+    // Toggle panel visibility
+    for mut vis in panel_query.iter_mut() {
+        vis.is_visible = game_phase.bounty_board_open;
+    }
+
+    if !game_phase.bounty_board_open {
+        return;
+    }
+
+    // Build bounty list text
+    let mut info = String::from("=== BOUNTY BOARD ===\n\n");
+
+    let active: Vec<_> = bounty_board.bounties.iter().filter(|b| !b.is_completed).collect();
+
+    if active.is_empty() {
+        info.push_str("  No active bounties.\n");
+    } else {
+        for bounty in &active {
+            let type_icon = match bounty.bounty_type {
+                BountyType::Monster => "[M]",
+                BountyType::Exploration => "[E]",
+                BountyType::Objective => "[O]",
+                BountyType::Resource => "[R]",
+            };
+            let type_name = match bounty.bounty_type {
+                BountyType::Monster => "Monster",
+                BountyType::Exploration => "Explore",
+                BountyType::Objective => "Objective",
+                BountyType::Resource => "Resource",
+            };
+            let status = if bounty.assigned_hero.is_some() {
+                "In Progress"
+            } else {
+                "Available"
+            };
+            let danger_str: String = (0..bounty.danger_level).map(|_| '!').collect();
+            info.push_str(&format!(
+                "{} {} {:.0}g {}\n   Danger:{} | {}\n",
+                type_icon, type_name, bounty.gold_reward, danger_str, bounty.danger_level, status
+            ));
+        }
+    }
+
+    let available_count = active.iter().filter(|b| b.assigned_hero.is_none()).count();
+    let in_progress_count = active.iter().filter(|b| b.assigned_hero.is_some()).count();
+    info.push_str(&format!(
+        "\nTotal: {} | Avail: {} | Active: {}\n",
+        active.len(), available_count, in_progress_count
+    ));
+    info.push_str("Click map to place (30g)");
+
+    for mut text in text_query.iter_mut() {
+        text.sections[0].value = info.clone();
     }
 }
 
