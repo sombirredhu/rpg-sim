@@ -27,6 +27,7 @@ impl HeroClass {
                 speed: 35.0,
                 attack_range: 30.0,
                 risk_tolerance: 0.7,
+                fortify_reduction: 0.0,
             },
             HeroClass::Archer => HeroStats {
                 max_hp: 90.0,
@@ -36,6 +37,7 @@ impl HeroClass {
                 speed: 45.0,
                 attack_range: 150.0,
                 risk_tolerance: 0.5,
+                fortify_reduction: 0.0,
             },
             HeroClass::Mage => HeroStats {
                 max_hp: 70.0,
@@ -45,6 +47,7 @@ impl HeroClass {
                 speed: 30.0,
                 attack_range: 120.0,
                 risk_tolerance: 0.4,
+                fortify_reduction: 0.0,
             },
             HeroClass::Rogue => HeroStats {
                 max_hp: 80.0,
@@ -54,6 +57,7 @@ impl HeroClass {
                 speed: 55.0,
                 attack_range: 25.0,
                 risk_tolerance: 0.6,
+                fortify_reduction: 0.0,
             },
             HeroClass::Healer => HeroStats {
                 max_hp: 85.0,
@@ -63,6 +67,7 @@ impl HeroClass {
                 speed: 35.0,
                 attack_range: 100.0,
                 risk_tolerance: 0.3,
+                fortify_reduction: 0.0,
             },
         }
     }
@@ -97,6 +102,8 @@ pub struct HeroStats {
     pub speed: f32,
     pub attack_range: f32,
     pub risk_tolerance: f32,
+    /// Damage reduction from Warrior Fortify aura (0.0 = none, 0.2 = 20% reduction)
+    pub fortify_reduction: f32,
 }
 
 #[derive(Component, Debug, Clone)]

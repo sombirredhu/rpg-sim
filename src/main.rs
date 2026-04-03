@@ -88,6 +88,7 @@ fn main() {
         .add_system(enemy::threat_escalation_system)
         .add_system(enemy::boss_raid_system)
         .add_system(enemy::enemy_death_system)
+        .add_system(combat::warrior_fortify_aura_system)
         .add_system(combat::hero_attack_system)
         .add_system(combat::enemy_attack_system)
         .add_system(combat::healer_system)
