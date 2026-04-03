@@ -32,10 +32,6 @@ fn main() {
             ..Default::default()
         })
         .insert_resource(ClearColor(Color::rgb_u8(21, 29, 23)))
-        .insert_resource(GameState::default())
-        .insert_resource(create_map_state())
-        .insert_resource(PlacementState::default())
-        .insert_resource(AutoSaveState::default())
         .add_plugins(DefaultPlugins)
         // Resources
         .insert_resource(GameEconomy::default())
