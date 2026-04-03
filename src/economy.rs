@@ -6,6 +6,7 @@ pub fn tax_collection_system(
     mut economy: ResMut<GameEconomy>,
     game_time: Res<GameTime>,
     buildings: Query<&Building>,
+    bonuses: Res<BuildingBonuses>,
     time: Res<Time>,
 ) {
     // Calculate income per real second based on building taxes
@@ -15,6 +16,10 @@ pub fn tax_collection_system(
             total_tax_per_minute += building.building_type.tax_income(building.tier);
         }
     }
+
+    // Apply road connection tax bonus (Market connected to buildings via roads)
+    let road_multiplier = 1.0 + bonuses.road_tax_bonus_pct / 100.0;
+    total_tax_per_minute *= road_multiplier;
 
     economy.income_per_minute = total_tax_per_minute;
 

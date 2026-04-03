@@ -99,6 +99,7 @@ fn main() {
         .add_system(building::guard_tower_attack_system)
         // Features systems
         .add_system(features::road_placement_system)
+        .add_system(features::road_connection_bonus_system)
         .add_system(features::den_destruction_system)
         .add_system(features::new_den_spawn_system)
         .add_system(features::night_enemy_spawn_system)
@@ -127,6 +128,7 @@ fn main() {
         .add_system(ui::update_kingdom_rank_ui)
         .add_system(ui::update_speed_ui)
         .add_system(ui::update_alerts_ui)
+        .add_system(ui::update_bounty_board_ui)
         .add_system(ui::build_menu_system)
         .add_system(ui::manual_bounty_system)
         .run();

@@ -792,6 +792,9 @@ pub struct AlertText;
 pub struct BountyBoardUi;
 
 #[derive(Component)]
+pub struct BountyBoardText;
+
+#[derive(Component)]
 pub struct BuildMenuUi;
 
 #[derive(Component)]
@@ -905,6 +908,46 @@ impl RoadNetwork {
     /// Speed multiplier: 1.3 on road, 1.0 off road
     pub fn speed_multiplier(&self, pos: Vec2) -> f32 {
         if self.is_on_road(pos) { 1.3 } else { 1.0 }
+    }
+
+    /// Check if two positions are connected via a chain of road tiles.
+    /// Uses BFS: starts from road tiles near `from`, floods through adjacent
+    /// road tiles (within 18px of each other), and checks if any tile near `to`
+    /// is reached.
+    pub fn are_connected(&self, from: Vec2, to: Vec2, radius: f32) -> bool {
+        if self.tiles.is_empty() { return false; }
+
+        let start_indices: Vec<usize> = self.tiles.iter().enumerate()
+            .filter(|(_, t)| (**t - from).length() < radius)
+            .map(|(i, _)| i)
+            .collect();
+
+        if start_indices.is_empty() { return false; }
+
+        let has_dest = self.tiles.iter().any(|t| (*t - to).length() < radius);
+        if !has_dest { return false; }
+
+        let mut visited = vec![false; self.tiles.len()];
+        let mut queue = std::collections::VecDeque::new();
+        for idx in start_indices {
+            visited[idx] = true;
+            queue.push_back(idx);
+        }
+
+        let chain_dist = 18.0;
+        while let Some(current) = queue.pop_front() {
+            let pos = self.tiles[current];
+            if (pos - to).length() < radius {
+                return true;
+            }
+            for (i, tile) in self.tiles.iter().enumerate() {
+                if !visited[i] && (*tile - pos).length() < chain_dist {
+                    visited[i] = true;
+                    queue.push_back(i);
+                }
+            }
+        }
+        false
     }
 }
 
@@ -1111,6 +1154,10 @@ pub struct BuildingBonuses {
     pub barracks_hero_cap_bonus: u32,  // Extra hero slots
     pub wizard_research_bonus: f32,    // Mage damage multiplier
     pub temple_pilgrim_income: f32,    // Tier 3 cathedral income
+    // Road connection bonuses
+    pub road_tax_bonus_pct: f32,       // % tax boost from Market road connections
+    pub road_craft_bonus_pct: f32,     // % craft/ATK boost from Blacksmith road connections
+    pub road_connected_pairs: u32,     // Number of road-connected building pairs
 }
 
 impl Default for BuildingBonuses {
@@ -1125,6 +1172,9 @@ impl Default for BuildingBonuses {
             barracks_hero_cap_bonus: 0,
             wizard_research_bonus: 1.0,
             temple_pilgrim_income: 0.0,
+            road_tax_bonus_pct: 0.0,
+            road_craft_bonus_pct: 0.0,
+            road_connected_pairs: 0,
         }
     }
 }
