@@ -51,9 +51,14 @@ pub fn night_overlay_system(
 /// System: Speed toggle with keyboard
 pub fn speed_control_system(
     keyboard: Res<Input<KeyCode>>,
+    game_phase: Res<GamePhase>,
     mut game_time: ResMut<GameTime>,
     mut alerts: ResMut<GameAlerts>,
 ) {
+    if game_phase.show_build_menu {
+        return;
+    }
+
     if keyboard.just_pressed(KeyCode::Key1) {
         game_time.speed_multiplier = 1.0;
         game_time.is_paused = false;

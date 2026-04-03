@@ -485,9 +485,9 @@ pub fn build_menu_system(
     if game_phase.show_build_menu {
         let available = kingdom.rank.available_buildings();
         let key_map = [
-            (KeyCode::Key4, 0), (KeyCode::Key5, 1), (KeyCode::Key6, 2),
-            (KeyCode::Key7, 3), (KeyCode::Key8, 4), (KeyCode::Key9, 5),
-            (KeyCode::Key0, 6),
+            (KeyCode::Key1, 0), (KeyCode::Key2, 1), (KeyCode::Key3, 2),
+            (KeyCode::Key4, 3), (KeyCode::Key5, 4), (KeyCode::Key6, 5),
+            (KeyCode::Key7, 6),
         ];
 
         for (key, idx) in key_map {
