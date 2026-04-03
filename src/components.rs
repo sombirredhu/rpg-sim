@@ -311,6 +311,8 @@ pub enum EnemyType {
     Troll,
     GoblinElite,
     BossWarlord,
+    Werewolf,      // Night-only
+    ShadowBandit,  // Night-only
 }
 
 impl EnemyType {
@@ -371,6 +373,28 @@ impl EnemyType {
                 xp_reward: 200.0,
                 gold_reward: 200.0,
             },
+            EnemyType::Werewolf => EnemyStats {
+                max_hp: 90.0,
+                hp: 90.0,
+                attack: 22.0,
+                defense: 8.0,
+                speed: 50.0,
+                attack_range: 28.0,
+                threat_level: 3,
+                xp_reward: 50.0,
+                gold_reward: 35.0,
+            },
+            EnemyType::ShadowBandit => EnemyStats {
+                max_hp: 60.0,
+                hp: 60.0,
+                attack: 20.0,
+                defense: 4.0,
+                speed: 45.0,
+                attack_range: 25.0,
+                threat_level: 2,
+                xp_reward: 35.0,
+                gold_reward: 25.0,
+            },
         }
     }
 
@@ -381,7 +405,13 @@ impl EnemyType {
             EnemyType::Troll => "Troll",
             EnemyType::GoblinElite => "Goblin Elite",
             EnemyType::BossWarlord => "Boss Warlord",
+            EnemyType::Werewolf => "Werewolf",
+            EnemyType::ShadowBandit => "Shadow Bandit",
         }
+    }
+
+    pub fn is_night_only(&self) -> bool {
+        matches!(self, EnemyType::Werewolf | EnemyType::ShadowBandit)
     }
 
     pub fn color(&self) -> Color {
@@ -391,6 +421,8 @@ impl EnemyType {
             EnemyType::Troll => Color::rgb(0.3, 0.5, 0.3),
             EnemyType::GoblinElite => Color::rgb(0.1, 0.4, 0.0),
             EnemyType::BossWarlord => Color::rgb(0.8, 0.1, 0.1),
+            EnemyType::Werewolf => Color::rgb(0.4, 0.3, 0.5),
+            EnemyType::ShadowBandit => Color::rgb(0.2, 0.1, 0.3),
         }
     }
 }
@@ -430,7 +462,7 @@ impl Default for EnemyAi {
     }
 }
 
-/// Monster den / spawn point
+/// Monster den / spawn point — can be destroyed by heroes
 #[derive(Component)]
 pub struct MonsterDen {
     pub enemy_type: EnemyType,
@@ -438,20 +470,29 @@ pub struct MonsterDen {
     pub spawn_interval: f32,
     pub max_spawned: u32,
     pub current_spawned: u32,
-    pub threat_tier: u32,      // Escalates over time
+    pub threat_tier: u32,
     pub weeks_unaddressed: u32,
+    pub hp: f32,
+    pub max_hp: f32,
 }
 
 impl MonsterDen {
     pub fn new(enemy_type: EnemyType) -> Self {
+        let max_hp = match enemy_type {
+            EnemyType::BossWarlord => 300.0,
+            EnemyType::Troll => 200.0,
+            _ => 120.0,
+        };
         Self {
             enemy_type,
             spawn_timer: 0.0,
-            spawn_interval: 30.0, // 30 seconds between spawns
+            spawn_interval: 30.0,
             max_spawned: 3,
             current_spawned: 0,
             threat_tier: 1,
             weeks_unaddressed: 0,
+            hp: max_hp,
+            max_hp,
         }
     }
 }
@@ -811,5 +852,254 @@ impl Default for GameAlerts {
 impl GameAlerts {
     pub fn push(&mut self, msg: String) {
         self.messages.push((msg, 5.0));
+    }
+}
+
+// ============================================================
+// ROAD NETWORK
+// ============================================================
+
+#[derive(Component)]
+pub struct Road;
+
+/// Resource tracking road tile positions for speed lookups
+pub struct RoadNetwork {
+    pub tiles: Vec<Vec2>,
+}
+
+impl Default for RoadNetwork {
+    fn default() -> Self {
+        Self { tiles: Vec::new() }
+    }
+}
+
+impl RoadNetwork {
+    /// Returns true if position is near a road (within 12px)
+    pub fn is_on_road(&self, pos: Vec2) -> bool {
+        self.tiles.iter().any(|t| (*t - pos).length() < 12.0)
+    }
+
+    /// Speed multiplier: 1.3 on road, 1.0 off road
+    pub fn speed_multiplier(&self, pos: Vec2) -> f32 {
+        if self.is_on_road(pos) { 1.3 } else { 1.0 }
+    }
+}
+
+// ============================================================
+// RESOURCE NODES
+// ============================================================
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResourceType {
+    Mine,
+    LumberMill,
+}
+
+impl ResourceType {
+    pub fn display_name(&self) -> &str {
+        match self {
+            ResourceType::Mine => "Mine",
+            ResourceType::LumberMill => "Lumber Mill",
+        }
+    }
+
+    pub fn income_per_tick(&self) -> f32 {
+        match self {
+            ResourceType::Mine => 3.0,
+            ResourceType::LumberMill => 2.0,
+        }
+    }
+}
+
+#[derive(Component)]
+pub struct ResourceNode {
+    pub resource_type: ResourceType,
+    pub is_active: bool,  // Needs hero to keep it safe / gather
+    pub gather_timer: f32,
+}
+
+impl ResourceNode {
+    pub fn new(resource_type: ResourceType) -> Self {
+        Self {
+            resource_type,
+            is_active: false,
+            gather_timer: 0.0,
+        }
+    }
+}
+
+// ============================================================
+// MERCHANT CARAVANS
+// ============================================================
+
+#[derive(Component)]
+pub struct Merchant {
+    pub gold_value: f32,
+    pub destination: Vec2,
+    pub has_arrived: bool,
+    pub leave_timer: f32,
+}
+
+// ============================================================
+// FOG OF WAR
+// ============================================================
+
+pub struct FogOfWar {
+    pub revealed_radius: f32, // How far from town center is revealed
+    pub explored_areas: Vec<Vec2>, // Additional explored locations
+}
+
+impl Default for FogOfWar {
+    fn default() -> Self {
+        Self {
+            revealed_radius: 300.0,
+            explored_areas: Vec::new(),
+        }
+    }
+}
+
+#[derive(Component)]
+pub struct FogTile;
+
+// ============================================================
+// SPRITE ANIMATION
+// ============================================================
+
+#[derive(Component)]
+pub struct SpriteAnimation {
+    pub frame_count: usize,
+    pub frame_timer: f32,
+    pub frame_duration: f32,
+    pub current_frame: usize,
+}
+
+impl SpriteAnimation {
+    pub fn new(frame_count: usize, fps: f32) -> Self {
+        Self {
+            frame_count,
+            frame_timer: 0.0,
+            frame_duration: 1.0 / fps,
+            current_frame: 0,
+        }
+    }
+}
+
+// ============================================================
+// INSPECT SYSTEM
+// ============================================================
+
+#[derive(Component)]
+pub struct InspectText;
+
+pub struct InspectTarget {
+    pub entity: Option<Entity>,
+}
+
+impl Default for InspectTarget {
+    fn default() -> Self {
+        Self { entity: None }
+    }
+}
+
+// ============================================================
+// MILESTONES & ERA
+// ============================================================
+
+pub struct Milestones {
+    pub cleared_first_den: bool,
+    pub reached_village: bool,
+    pub reached_town: bool,
+    pub reached_city: bool,
+    pub first_legendary_hero: bool,
+    pub killed_first_boss: bool,
+    pub built_all_types: bool,
+    pub ten_heroes: bool,
+}
+
+impl Default for Milestones {
+    fn default() -> Self {
+        Self {
+            cleared_first_den: false,
+            reached_village: false,
+            reached_town: false,
+            reached_city: false,
+            first_legendary_hero: false,
+            killed_first_boss: false,
+            built_all_types: false,
+            ten_heroes: false,
+        }
+    }
+}
+
+pub struct LegacyUpgrades {
+    pub tax_bonus_pct: f32,        // +% tax income
+    pub hero_start_level: u32,     // Heroes start at this level
+    pub building_hp_bonus_pct: f32,
+    pub bounty_cost_reduction: f32,
+}
+
+impl Default for LegacyUpgrades {
+    fn default() -> Self {
+        Self {
+            tax_bonus_pct: 0.0,
+            hero_start_level: 1,
+            building_hp_bonus_pct: 0.0,
+            bounty_cost_reduction: 0.0,
+        }
+    }
+}
+
+// ============================================================
+// ERA SIEGE
+// ============================================================
+
+pub struct EraState {
+    pub era_length_days: u32,    // 30-60 in-game days
+    pub siege_active: bool,
+    pub siege_waves_remaining: u32,
+    pub siege_spawn_timer: f32,
+}
+
+impl Default for EraState {
+    fn default() -> Self {
+        Self {
+            era_length_days: 45,
+            siege_active: false,
+            siege_waves_remaining: 0,
+            siege_spawn_timer: 0.0,
+        }
+    }
+}
+
+// ============================================================
+// BUILDING TIER ABILITIES
+// ============================================================
+
+/// Tracks active tier-2/3 building bonuses applied globally
+pub struct BuildingBonuses {
+    pub inn_heal_speed: f32,           // Multiplier (1.0 = normal, 1.5 = tier 1)
+    pub market_trade_bonus: f32,       // Extra gold from merchants
+    pub temple_morale_aura: f32,       // Morale regen bonus
+    pub blacksmith_atk_bonus: f32,     // Flat ATK bonus for all heroes
+    pub blacksmith_def_bonus: f32,     // Flat DEF bonus for all heroes
+    pub alchemist_recovery_speed: f32, // Reduces death timer
+    pub barracks_hero_cap_bonus: u32,  // Extra hero slots
+    pub wizard_research_bonus: f32,    // Mage damage multiplier
+    pub temple_pilgrim_income: f32,    // Tier 3 cathedral income
+}
+
+impl Default for BuildingBonuses {
+    fn default() -> Self {
+        Self {
+            inn_heal_speed: 1.0,
+            market_trade_bonus: 0.0,
+            temple_morale_aura: 0.0,
+            blacksmith_atk_bonus: 0.0,
+            blacksmith_def_bonus: 0.0,
+            alchemist_recovery_speed: 1.0,
+            barracks_hero_cap_bonus: 0,
+            wizard_research_bonus: 1.0,
+            temple_pilgrim_income: 0.0,
+        }
     }
 }

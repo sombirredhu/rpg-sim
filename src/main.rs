@@ -16,6 +16,7 @@ mod combat;
 mod day_night;
 mod ui;
 mod camera;
+mod features;
 
 use bevy::prelude::*;
 use components::*;
@@ -31,6 +32,13 @@ fn main() {
         .insert_resource(KingdomState::default())
         .insert_resource(GamePhase::default())
         .insert_resource(GameAlerts::default())
+        .insert_resource(RoadNetwork::default())
+        .insert_resource(Milestones::default())
+        .insert_resource(LegacyUpgrades::default())
+        .insert_resource(EraState::default())
+        .insert_resource(BuildingBonuses::default())
+        .insert_resource(FogOfWar::default())
+        .insert_resource(InspectTarget::default())
         .insert_resource(ClearColor(Color::rgb(0.18, 0.32, 0.15)))
         // Events
         .add_event::<BountyCompletedEvent>()
@@ -50,6 +58,8 @@ fn main() {
         .add_startup_system_to_stage(StartupStage::PostStartup, enemy::spawn_initial_dens)
         .add_startup_system_to_stage(StartupStage::PostStartup, spawn_initial_heroes)
         .add_startup_system_to_stage(StartupStage::PostStartup, day_night::spawn_night_overlay)
+        .add_startup_system_to_stage(StartupStage::PostStartup, features::spawn_resource_nodes)
+        .add_startup_system_to_stage(StartupStage::PostStartup, features::spawn_fog_of_war)
         // Game logic systems
         .add_system(camera::camera_control_system)
         .add_system(day_night::day_night_cycle_system)
@@ -78,6 +88,28 @@ fn main() {
         .add_system(building::building_upgrade_system)
         .add_system(building::building_repair_system)
         .add_system(building::guard_tower_attack_system)
+        // Features systems
+        .add_system(features::road_placement_system)
+        .add_system(features::den_destruction_system)
+        .add_system(features::new_den_spawn_system)
+        .add_system(features::night_enemy_spawn_system)
+        .add_system(features::night_enemy_despawn_system)
+        .add_system(features::merchant_spawn_system)
+        .add_system(features::merchant_movement_system)
+        .add_system(features::resource_node_system)
+        .add_system(features::resource_bounty_system)
+        .add_system(features::building_bonuses_system)
+        .add_system(features::apply_building_bonuses_system)
+        .add_system(features::cathedral_income_system)
+        .add_system(features::hero_idle_leave_system)
+        .add_system(features::milestone_system)
+        .add_system(features::recovery_bounty_system)
+        .add_system(features::objective_bounty_system)
+        .add_system(features::era_siege_system)
+        .add_system(features::torch_defense_system)
+        .add_system(features::sprite_animation_system)
+        .add_system(features::inspect_system)
+        .add_system(features::fog_of_war_system)
         // UI systems
         .add_system(ui::update_gold_ui)
         .add_system(ui::update_day_night_ui)

@@ -159,6 +159,7 @@ pub fn hero_ai_system(
 pub fn hero_movement_system(
     mut heroes: Query<(&Hero, &HeroStats, &mut HeroState, &mut Transform)>,
     enemies: Query<&Transform, (With<Enemy>, Without<Hero>)>,
+    road_network: Res<RoadNetwork>,
     game_time: Res<GameTime>,
     time: Res<Time>,
 ) {
@@ -178,7 +179,8 @@ pub fn hero_movement_system(
                     *state = HeroState::Idle;
                 } else {
                     let move_dir = dir.normalize();
-                    let speed = stats.speed * dt;
+                    let road_mult = road_network.speed_multiplier(pos);
+                    let speed = stats.speed * road_mult * dt;
                     transform.translation.x += move_dir.x * speed;
                     transform.translation.y += move_dir.y * speed;
 
@@ -200,7 +202,8 @@ pub fn hero_movement_system(
 
                     if dist > stats.attack_range {
                         let move_dir = dir.normalize();
-                        let speed = stats.speed * dt;
+                        let road_mult = road_network.speed_multiplier(pos);
+                        let speed = stats.speed * road_mult * dt;
                         transform.translation.x += move_dir.x * speed;
                         transform.translation.y += move_dir.y * speed;
                     }
@@ -220,6 +223,7 @@ pub fn hero_movement_system(
 /// System: Hero resting at inn restores HP and morale
 pub fn hero_rest_system(
     mut heroes: Query<(&mut Hero, &mut HeroStats, &mut HeroState)>,
+    bonuses: Res<BuildingBonuses>,
     game_time: Res<GameTime>,
     time: Res<Time>,
 ) {
@@ -230,10 +234,12 @@ pub fn hero_rest_system(
 
     for (mut hero, mut stats, mut state) in heroes.iter_mut() {
         if let HeroState::Resting = *state {
-            // Heal 10% HP per second while resting
-            stats.hp = (stats.hp + stats.max_hp * 0.1 * dt).min(stats.max_hp);
-            // Restore morale
-            hero.morale = (hero.morale + 5.0 * dt).min(100.0);
+            // Heal 10% HP per second while resting (boosted by inn tier)
+            let heal_rate = stats.max_hp * 0.1 * bonuses.inn_heal_speed;
+            stats.hp = (stats.hp + heal_rate * dt).min(stats.max_hp);
+            // Restore morale (boosted by temple aura)
+            let morale_rate = 5.0 + bonuses.temple_morale_aura;
+            hero.morale = (hero.morale + morale_rate * dt).min(100.0);
 
             // Stop resting when fully healed
             if stats.hp >= stats.max_hp * 0.9 && hero.morale >= 70.0 {
@@ -307,6 +313,7 @@ pub fn hero_attraction_system(
     buildings: Query<(&Building, &Transform)>,
     heroes: Query<&Hero>,
     kingdom: Res<KingdomState>,
+    bonuses: Res<BuildingBonuses>,
     sprites: Res<SpriteAssets>,
     game_time: Res<GameTime>,
     time: Res<Time>,
@@ -321,7 +328,8 @@ pub fn hero_attraction_system(
     *spawn_timer = 15.0 + rand::random::<f32>() * 15.0;
 
     let current_heroes = heroes.iter().count() as u32;
-    if current_heroes >= kingdom.rank.max_heroes() {
+    let max = kingdom.rank.max_heroes() + bonuses.barracks_hero_cap_bonus;
+    if current_heroes >= max {
         return;
     }
 

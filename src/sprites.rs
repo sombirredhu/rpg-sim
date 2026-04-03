@@ -238,6 +238,33 @@ pub fn spawn_enemy_with_sprite(
                 ..Default::default()
             })
         }
+        EnemyType::Werewolf => {
+            // Reuse troll sprite with purple tint for werewolf
+            commands.spawn_bundle(SpriteBundle {
+                texture: sprites.troll_tex.clone(),
+                sprite: Sprite {
+                    color: Color::rgb(0.6, 0.4, 0.8),
+                    ..Default::default()
+                },
+                transform: Transform::from_translation(position)
+                    .with_scale(Vec3::splat(1.8)),
+                ..Default::default()
+            })
+        }
+        EnemyType::ShadowBandit => {
+            // Reuse bandit atlas with dark tint for shadow bandit
+            commands.spawn_bundle(SpriteSheetBundle {
+                texture_atlas: sprites.bandit_atlas.clone(),
+                sprite: TextureAtlasSprite {
+                    index: 0,
+                    color: Color::rgb(0.3, 0.2, 0.4),
+                    ..Default::default()
+                },
+                transform: Transform::from_translation(position)
+                    .with_scale(Vec3::splat(1.5)),
+                ..Default::default()
+            })
+        }
     }
     .insert(Enemy { enemy_type })
     .insert(stats)
