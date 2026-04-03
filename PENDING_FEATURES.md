@@ -12,7 +12,7 @@
 - [x] Set bounties to influence hero behavior
 - [x] Manage gold economy (income vs. expenditure)
 - [x] Survive threats (enemy waves, boss raids)
-- [ ] Plan road networks connecting buildings (roads exist but no connection bonus)
+- [x] Plan road networks connecting buildings (roads exist but no connection bonus)
 - [ ] Expand map perimeter to reveal new zones (map is static)
 
 ## 2. Indirect Control System (GDD Section 3)
@@ -68,7 +68,7 @@
 ### Road Network
 - [x] Road placement (R + click)
 - [x] 30% speed boost on roads
-- [ ] Road connection bonuses (market tax boost, blacksmith craft speed)
+- [x] Road connection bonuses (market tax boost, blacksmith craft speed)
 - [ ] Bridge building to cross rivers/open new map sectors
 - [ ] Drag-and-drop road placement (snap-to-grid)
 
@@ -198,11 +198,11 @@
 
 | Category | Implemented | Pending | Total |
 |----------|------------|---------|-------|
-| Core Loop | 5 | 2 | 7 |
+| Core Loop | 6 | 1 | 7 |
 | Indirect Control | 4 | 3 | 7 |
 | Hero Classes | 12 | 6 | 18 |
 | Buildings | 14 | 4 | 18 |
-| Roads | 2 | 3 | 5 |
+| Roads | 4 | 1 | 5 |
 | Economy | 7 | 4 | 11 |
 | Enemies | 12 | 3 | 15 |
 | Day/Night | 8 | 2 | 10 |
@@ -213,6 +213,6 @@
 | Monetization | 0 | 5 | 5 |
 | Emergent | 3 | 4 | 7 |
 | Other | 0 | 7 | 7 |
-| **TOTAL** | **~87** | **~66** | **~153** |
+| **TOTAL** | **~89** | **~64** | **~153** |
 
-**Approximate completion: ~57% of GDD features implemented**
+**Approximate completion: ~58% of GDD features implemented**

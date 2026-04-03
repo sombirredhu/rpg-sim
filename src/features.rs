@@ -72,6 +72,70 @@ pub fn road_placement_system(
 }
 
 // ================================================================
+// 1b. ROAD CONNECTION BONUSES — buildings connected by roads get bonuses
+// ================================================================
+
+/// Recalculates road connection bonuses every few seconds.
+/// Market connected to other buildings via roads → tax bonus (+10% per connection).
+/// Blacksmith connected via roads → craft/ATK bonus (+15% per connection).
+pub fn road_connection_bonus_system(
+    road_network: Res<RoadNetwork>,
+    buildings: Query<(&Building, &Transform)>,
+    mut bonuses: ResMut<BuildingBonuses>,
+    time: Res<Time>,
+    mut timer: Local<f32>,
+) {
+    // Only recalculate every 3 seconds to avoid performance issues with BFS
+    *timer -= time.delta_seconds();
+    if *timer > 0.0 { return; }
+    *timer = 3.0;
+
+    let connection_radius = 50.0; // Building must be within 50px of a road tile
+
+    // Collect building positions and types
+    let building_data: Vec<(BuildingType, Vec2)> = buildings.iter()
+        .filter(|(b, _)| !b.is_destroyed)
+        .map(|(b, t)| (b.building_type, Vec2::new(t.translation.x, t.translation.y)))
+        .collect();
+
+    let mut tax_bonus = 0.0_f32;
+    let mut craft_bonus = 0.0_f32;
+    let mut connected_pairs = 0_u32;
+
+    // Check each pair of buildings for road connectivity
+    for i in 0..building_data.len() {
+        for j in (i + 1)..building_data.len() {
+            let (type_a, pos_a) = building_data[i];
+            let (type_b, pos_b) = building_data[j];
+
+            // Only check pairs where at least one is Market or Blacksmith
+            let has_market = type_a == BuildingType::Market || type_b == BuildingType::Market;
+            let has_blacksmith = type_a == BuildingType::Blacksmith || type_b == BuildingType::Blacksmith;
+
+            if !has_market && !has_blacksmith { continue; }
+
+            if road_network.are_connected(pos_a, pos_b, connection_radius) {
+                connected_pairs += 1;
+
+                // Market road connections: +10% tax per connected building
+                if has_market {
+                    tax_bonus += 10.0;
+                }
+
+                // Blacksmith road connections: +15% craft/ATK per connected building
+                if has_blacksmith {
+                    craft_bonus += 15.0;
+                }
+            }
+        }
+    }
+
+    bonuses.road_tax_bonus_pct = tax_bonus;
+    bonuses.road_craft_bonus_pct = craft_bonus;
+    bonuses.road_connected_pairs = connected_pairs;
+}
+
+// ================================================================
 // 2. DESTROYABLE MONSTER DENS — heroes attack dens near bounties
 // ================================================================
 
@@ -371,8 +435,18 @@ pub fn building_bonuses_system(
     buildings: Query<&Building>,
     mut bonuses: ResMut<BuildingBonuses>,
 ) {
+    // Preserve road connection bonuses (calculated separately on a timer)
+    let road_tax = bonuses.road_tax_bonus_pct;
+    let road_craft = bonuses.road_craft_bonus_pct;
+    let road_pairs = bonuses.road_connected_pairs;
+
     // Reset
     *bonuses = BuildingBonuses::default();
+
+    // Restore road bonuses
+    bonuses.road_tax_bonus_pct = road_tax;
+    bonuses.road_craft_bonus_pct = road_craft;
+    bonuses.road_connected_pairs = road_pairs;
 
     for building in buildings.iter() {
         if building.is_destroyed { continue; }
@@ -410,6 +484,13 @@ pub fn building_bonuses_system(
             }
             _ => {}
         }
+    }
+
+    // Apply road craft bonus to blacksmith stats
+    if road_craft > 0.0 {
+        let craft_mult = 1.0 + road_craft / 100.0;
+        bonuses.blacksmith_atk_bonus *= craft_mult;
+        bonuses.blacksmith_def_bonus *= craft_mult;
     }
 }
 
