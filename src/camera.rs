@@ -1,5 +1,17 @@
 use bevy::prelude::*;
 
+/// Convert primary-window cursor coordinates into world-space coordinates for a 2D orthographic camera.
+pub fn cursor_to_world_2d(
+    window: &Window,
+    camera_transform: &Transform,
+    projection: &OrthographicProjection,
+) -> Option<Vec2> {
+    let cursor = window.cursor_position()?;
+    let window_size = Vec2::new(window.width(), window.height());
+    let centered = cursor - (window_size * 0.5);
+    Some(camera_transform.translation.truncate() + centered * projection.scale)
+}
+
 /// System: Camera pan with WASD/arrow keys and zoom with scroll
 pub fn camera_control_system(
     keyboard: Res<Input<KeyCode>>,

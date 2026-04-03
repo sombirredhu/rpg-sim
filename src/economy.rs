@@ -39,19 +39,27 @@ pub fn bounty_payout_system(
     mut alerts: ResMut<GameAlerts>,
 ) {
     for event in events.iter() {
-        if let Some(reward) = bounty_board.complete_bounty(event.bounty_id) {
-            // Pay the hero
-            if let Ok(mut hero) = heroes.get_mut(event.hero_entity) {
-                hero.gold_carried += reward * 0.9; // Hero gets 90%
-                hero.xp += 25.0; // Bonus XP for bounty completion
-            }
-            // 10% bounty tax returns to treasury
-            let tax = reward * 0.1;
-            economy.gold += tax;
-            economy.total_earned += tax;
+        let reward = event.gold_reward;
 
-            alerts.push(format!("Bounty completed! +{:.0} gold tax", tax));
+        // Bounties are paid on completion from the treasury.
+        economy.gold -= reward;
+        economy.total_spent += reward;
+
+        // Pay the hero
+        if let Ok(mut hero) = heroes.get_mut(event.hero_entity) {
+            hero.gold_carried += reward * 0.9; // Hero gets 90%
+            hero.xp += 25.0; // Bonus XP for bounty completion
         }
+        // 10% bounty tax returns to treasury
+        let tax = reward * 0.1;
+        economy.gold += tax;
+        economy.total_earned += tax;
+
+        alerts.push(format!(
+            "Bounty completed! Hero paid {:.0}g, treasury tax return +{:.0}g",
+            reward * 0.9,
+            tax
+        ));
     }
 
     // Clean up completed bounties periodically

@@ -581,9 +581,32 @@ impl BountyBoard {
         id
     }
 
+    pub fn get_bounty(&self, id: u32) -> Option<&Bounty> {
+        self.bounties.iter().find(|b| b.id == id && !b.is_completed)
+    }
+
+    pub fn assign_bounty(&mut self, id: u32, hero_entity: Entity) -> bool {
+        if let Some(bounty) = self.bounties.iter_mut().find(|b| b.id == id && !b.is_completed) {
+            if bounty.assigned_hero.is_none() || bounty.assigned_hero == Some(hero_entity) {
+                bounty.assigned_hero = Some(hero_entity);
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn unassign_hero(&mut self, hero_entity: Entity) {
+        for bounty in self.bounties.iter_mut() {
+            if !bounty.is_completed && bounty.assigned_hero == Some(hero_entity) {
+                bounty.assigned_hero = None;
+            }
+        }
+    }
+
     pub fn complete_bounty(&mut self, id: u32) -> Option<f32> {
         if let Some(bounty) = self.bounties.iter_mut().find(|b| b.id == id) {
             bounty.is_completed = true;
+            bounty.assigned_hero = None;
             Some(bounty.gold_reward)
         } else {
             None

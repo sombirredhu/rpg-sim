@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::components::*;
+use crate::camera::cursor_to_world_2d;
 use crate::sprites::{SpriteAssets, spawn_building_with_sprite};
 
 /// System: Handle building placement from build mode
@@ -7,7 +8,7 @@ pub fn building_placement_system(
     mut commands: Commands,
     mouse_input: Res<Input<MouseButton>>,
     windows: Res<Windows>,
-    camera: Query<(&Camera, &Transform), With<Camera>>,
+    camera: Query<(&Camera, &Transform, &OrthographicProjection), With<Camera>>,
     mut economy: ResMut<GameEconomy>,
     mut game_phase: ResMut<GamePhase>,
     kingdom: Res<KingdomState>,
@@ -28,16 +29,11 @@ pub fn building_placement_system(
             Some(w) => w,
             None => return,
         };
-        let cursor_pos = match window.cursor_position() {
-            Some(p) => p,
-            None => return,
-        };
-
-        if let Ok((_camera, camera_transform)) = camera.get_single() {
-            let window_size = Vec2::new(window.width(), window.height());
-            let ndc = (cursor_pos / window_size) * 2.0 - Vec2::ONE;
-            let world_pos = camera_transform.translation.truncate()
-                + ndc * Vec2::new(window_size.x, window_size.y) * 0.3;
+        if let Ok((_camera, camera_transform, projection)) = camera.get_single() {
+            let world_pos = match cursor_to_world_2d(window, camera_transform, projection) {
+                Some(pos) => pos,
+                None => return,
+            };
 
             let cost = selected.cost();
             if economy.gold < cost {
@@ -78,7 +74,7 @@ pub fn building_upgrade_system(
     keyboard: Res<Input<KeyCode>>,
     _mouse_input: Res<Input<MouseButton>>,
     windows: Res<Windows>,
-    camera: Query<(&Camera, &Transform), With<Camera>>,
+    camera: Query<(&Camera, &Transform, &OrthographicProjection), With<Camera>>,
     mut buildings: Query<(&mut Building, &Transform), Without<Camera>>,
     mut economy: ResMut<GameEconomy>,
     game_phase: Res<GamePhase>,
@@ -96,16 +92,11 @@ pub fn building_upgrade_system(
         Some(w) => w,
         None => return,
     };
-    let cursor_pos = match window.cursor_position() {
-        Some(p) => p,
-        None => return,
-    };
-
-    if let Ok((_camera, camera_transform)) = camera.get_single() {
-        let window_size = Vec2::new(window.width(), window.height());
-        let ndc = (cursor_pos / window_size) * 2.0 - Vec2::ONE;
-        let world_pos = camera_transform.translation.truncate()
-            + ndc * Vec2::new(window_size.x, window_size.y) * 0.3;
+    if let Ok((_camera, camera_transform, projection)) = camera.get_single() {
+        let world_pos = match cursor_to_world_2d(window, camera_transform, projection) {
+            Some(pos) => pos,
+            None => return,
+        };
 
         for (mut building, transform) in buildings.iter_mut() {
             let pos = Vec2::new(transform.translation.x, transform.translation.y);
