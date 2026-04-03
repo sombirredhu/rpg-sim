@@ -877,3 +877,114 @@ pub fn cathedral_income_system(
     economy.gold += income;
     economy.total_earned += income;
 }
+
+// ================================================================
+// 17. MAP EXPANSION — E key to expand revealed territory
+// ================================================================
+
+/// Player presses E to expand the map perimeter, revealing new zones.
+/// Each expansion increases revealed_radius and spawns new content.
+pub fn map_expansion_system(
+    mut commands: Commands,
+    keyboard: Res<Input<KeyCode>>,
+    mut fog: ResMut<FogOfWar>,
+    mut economy: ResMut<GameEconomy>,
+    kingdom: Res<KingdomState>,
+    sprites: Res<SpriteAssets>,
+    game_phase: Res<GamePhase>,
+    mut alerts: ResMut<GameAlerts>,
+    mut fog_tiles: Query<(Entity, &Transform), With<FogTile>>,
+) {
+    if !keyboard.just_pressed(KeyCode::E) { return; }
+    if game_phase.build_mode || game_phase.bounty_board_open { return; }
+
+    let max = kingdom.rank.max_expansions();
+    if fog.expansions >= max {
+        alerts.push(format!(
+            "Cannot expand further at {} rank! Grow your kingdom first.",
+            kingdom.rank.display_name()
+        ));
+        return;
+    }
+
+    let cost = KingdomRank::expansion_cost(fog.expansions);
+    if economy.gold < cost {
+        alerts.push(format!("Not enough gold to expand! Need {:.0}g", cost));
+        return;
+    }
+
+    // Pay the cost
+    economy.gold -= cost;
+    economy.total_spent += cost;
+
+    // Increase revealed radius by 100 units per expansion
+    let old_radius = fog.revealed_radius;
+    fog.expansions += 1;
+    fog.revealed_radius += 100.0;
+    let new_radius = fog.revealed_radius;
+
+    // Remove fog tiles that are now within the expanded radius
+    for (entity, fog_t) in fog_tiles.iter_mut() {
+        let fpos = Vec2::new(fog_t.translation.x, fog_t.translation.y);
+        if fpos.length() < new_radius {
+            commands.entity(entity).despawn();
+        }
+    }
+
+    // Spawn new content in the newly revealed ring
+    // New monster den in the expanded zone
+    let den_angle = rand::random::<f32>() * TAU;
+    let den_radius = old_radius + 50.0 + rand::random::<f32>() * 40.0;
+    let den_pos = Vec2::new(den_angle.cos() * den_radius, den_angle.sin() * den_radius);
+
+    let den_type = match fog.expansions {
+        1..=2 => EnemyType::Goblin,
+        3 => EnemyType::Bandit,
+        _ => if rand::random::<bool>() { EnemyType::Bandit } else { EnemyType::Troll },
+    };
+
+    commands.spawn_bundle(SpriteSheetBundle {
+        texture_atlas: sprites.building_red_atlas.clone(),
+        transform: Transform::from_translation(Vec3::new(den_pos.x, den_pos.y, 4.0))
+            .with_scale(Vec3::splat(0.5)),
+        sprite: TextureAtlasSprite { index: 1, ..Default::default() },
+        ..Default::default()
+    })
+    .insert(MonsterDen::new(den_type));
+
+    // Spawn a new resource node in the expanded zone
+    let node_angle = den_angle + std::f32::consts::PI; // Opposite side from den
+    let node_radius = old_radius + 30.0 + rand::random::<f32>() * 50.0;
+    let node_pos = Vec2::new(node_angle.cos() * node_radius, node_angle.sin() * node_radius);
+
+    let (rtype, color) = if fog.expansions % 2 == 1 {
+        (ResourceType::Mine, Color::rgb(0.5, 0.4, 0.3))
+    } else {
+        (ResourceType::LumberMill, Color::rgb(0.3, 0.5, 0.2))
+    };
+
+    commands.spawn_bundle(SpriteBundle {
+        sprite: Sprite {
+            color,
+            custom_size: Some(Vec2::new(20.0, 20.0)),
+            ..Default::default()
+        },
+        transform: Transform::from_translation(Vec3::new(node_pos.x, node_pos.y, 3.5)),
+        ..Default::default()
+    })
+    .insert(ResourceNode::new(rtype));
+
+    let zone_name = match fog.expansions {
+        1 => "Outer Fields",
+        2 => "Dark Forest",
+        3 => "Mountain Pass",
+        4 => "Ancient Ruins",
+        5 => "Dragon's Reach",
+        _ => "Unknown Territory",
+    };
+
+    alerts.push(format!(
+        "TERRITORY EXPANDED: {} revealed! (Radius: {:.0}) [-{:.0}g]",
+        zone_name, new_radius, cost
+    ));
+}

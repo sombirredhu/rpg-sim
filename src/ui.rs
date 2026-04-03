@@ -184,7 +184,7 @@ pub fn setup_ui(
             .with_children(|bar| {
                 bar.spawn_bundle(TextBundle {
                     text: Text::with_section(
-                        "WASD:Move | Scroll:Zoom | B:Build | U:Upgrade | 1/2/3:Speed | Space:Pause | Q:Bounty",
+                        "WASD:Move | Scroll:Zoom | B:Build | U:Upgrade | E:Expand | 1/2/3:Speed | Space:Pause | Q:Bounty",
                         TextStyle {
                             font: font.clone(),
                             font_size: 13.0,
