@@ -1,6 +1,11 @@
 use bevy::prelude::*;
 use crate::components::*;
-use crate::sprites::{SpriteAssets, spawn_enemy_with_sprite};
+use crate::sprites::{
+    SpriteAssets,
+    monster_den_scale_for_tier,
+    monster_den_texture_for_tier,
+    spawn_enemy_with_sprite,
+};
 use std::f32::consts::TAU;
 
 /// System: Spawn enemies from monster dens using real sprites
@@ -191,7 +196,7 @@ pub fn boss_raid_system(
     }
 }
 
-/// Startup: Spawn initial monster dens using RedBuilding sprite for dens
+/// Startup: Spawn initial monster dens using monster-den tier sprites.
 pub fn spawn_initial_dens(
     mut commands: Commands,
     sprites: Res<SpriteAssets>,
@@ -204,15 +209,17 @@ pub fn spawn_initial_dens(
     ];
 
     for (pos, enemy_type) in den_positions {
-        // Use RedBuilding small variant (index 1) for monster dens
-        commands.spawn_bundle(SpriteSheetBundle {
-            texture_atlas: sprites.building_red_atlas.clone(),
+        let den = MonsterDen::new(enemy_type);
+        let tier = den.threat_tier;
+
+        commands.spawn_bundle(SpriteBundle {
+            texture: monster_den_texture_for_tier(&sprites, tier),
             transform: Transform::from_translation(Vec3::new(pos.x, pos.y, 4.0))
-                .with_scale(Vec3::splat(0.5)),
-            sprite: TextureAtlasSprite { index: 1, ..Default::default() },
+                .with_scale(Vec3::splat(monster_den_scale_for_tier(tier))),
             ..Default::default()
         })
-        .insert(MonsterDen::new(enemy_type));
+        .insert(den)
+        .insert(MonsterDenVisualTier { tier });
     }
 }
 

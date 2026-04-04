@@ -307,6 +307,12 @@ impl Building {
     }
 }
 
+/// Tracks which building-tier sprite is currently displayed on an entity.
+#[derive(Component, Debug, Clone, Copy)]
+pub struct BuildingVisualTier {
+    pub tier: u32,
+}
+
 // ============================================================
 // ENEMY COMPONENTS
 // ============================================================
@@ -502,6 +508,12 @@ impl MonsterDen {
             max_hp,
         }
     }
+}
+
+/// Tracks which den-tier sprite is currently displayed on a den entity.
+#[derive(Component, Debug, Clone, Copy)]
+pub struct MonsterDenVisualTier {
+    pub tier: u32,
 }
 
 // ============================================================

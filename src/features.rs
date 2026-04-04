@@ -5,7 +5,12 @@
 use bevy::prelude::*;
 use crate::components::*;
 use crate::camera::cursor_to_world_2d;
-use crate::sprites::{SpriteAssets, spawn_enemy_with_sprite};
+use crate::sprites::{
+    SpriteAssets,
+    monster_den_scale_for_tier,
+    monster_den_texture_for_tier,
+    spawn_enemy_with_sprite,
+};
 use std::collections::HashSet;
 use std::f32::consts::TAU;
 
@@ -207,14 +212,17 @@ pub fn new_den_spawn_system(
 
     let enemy_type = if rand::random::<f32>() < 0.5 { EnemyType::Goblin } else { EnemyType::Bandit };
 
-    commands.spawn_bundle(SpriteSheetBundle {
-        texture_atlas: sprites.building_red_atlas.clone(),
+    let den = MonsterDen::new(enemy_type);
+    let tier = den.threat_tier;
+
+    commands.spawn_bundle(SpriteBundle {
+        texture: monster_den_texture_for_tier(&sprites, tier),
         transform: Transform::from_translation(Vec3::new(pos.x, pos.y, 4.0))
-            .with_scale(Vec3::splat(0.5)),
-        sprite: TextureAtlasSprite { index: 1, ..Default::default() },
+            .with_scale(Vec3::splat(monster_den_scale_for_tier(tier))),
         ..Default::default()
     })
-    .insert(MonsterDen::new(enemy_type));
+    .insert(den)
+    .insert(MonsterDenVisualTier { tier });
 }
 
 // ================================================================
@@ -1285,14 +1293,17 @@ pub fn map_expansion_system(
         _ => if rand::random::<bool>() { EnemyType::Bandit } else { EnemyType::Troll },
     };
 
-    commands.spawn_bundle(SpriteSheetBundle {
-        texture_atlas: sprites.building_red_atlas.clone(),
+    let den = MonsterDen::new(den_type);
+    let tier = den.threat_tier;
+
+    commands.spawn_bundle(SpriteBundle {
+        texture: monster_den_texture_for_tier(&sprites, tier),
         transform: Transform::from_translation(Vec3::new(den_pos.x, den_pos.y, 4.0))
-            .with_scale(Vec3::splat(0.5)),
-        sprite: TextureAtlasSprite { index: 1, ..Default::default() },
+            .with_scale(Vec3::splat(monster_den_scale_for_tier(tier))),
         ..Default::default()
     })
-    .insert(MonsterDen::new(den_type));
+    .insert(den)
+    .insert(MonsterDenVisualTier { tier });
 
     // Spawn a new resource node in the expanded zone
     let node_angle = den_angle + std::f32::consts::PI; // Opposite side from den

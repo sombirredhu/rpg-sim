@@ -99,6 +99,8 @@ fn main() {
         .add_system(building::building_upgrade_system)
         .add_system(building::building_repair_system)
         .add_system(building::guard_tower_attack_system)
+        .add_system(sprites::sync_building_tier_visuals)
+        .add_system(sprites::sync_monster_den_tier_visuals)
         // Features systems
         .add_system(features::road_placement_system)
         .add_system(features::road_connection_bonus_system)
