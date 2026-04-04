@@ -4,6 +4,7 @@
 //! which is populated once during startup.
 
 use bevy::prelude::*;
+use bevy::sprite::Rect;
 use crate::components::*;
 
 /// Pre-loaded texture handles for every visual in the game.
@@ -72,16 +73,30 @@ pub fn load_sprite_assets(
     let goblin_elite_tex: Handle<Image> = asset_server.load("Character/Leader/Daniel/Daniel_Red.png");
     let boss_tex: Handle<Image> = asset_server.load("Character/Leader/Rollo/Rollo_Red.png");
 
-    // ── Building atlases ────────────────────────────────────────────
+    // ── Building atlases (manual tight rects to avoid white background) ──
     let blue_bld_tex = asset_server.load("Level/Building/BlueBuilding.png");
-    let building_blue_atlas = texture_atlases.add(TextureAtlas::from_grid(
-        blue_bld_tex, Vec2::new(96.0, 128.0), 2, 1,
-    ));
+    let mut blue_atlas = TextureAtlas::new_empty(blue_bld_tex, Vec2::new(240.0, 128.0));
+    // 0: Large castle
+    blue_atlas.add_texture(Rect { min: Vec2::new(0.0, 2.0), max: Vec2::new(95.0, 116.0) });
+    // 1: Small tower
+    blue_atlas.add_texture(Rect { min: Vec2::new(96.0, 43.0), max: Vec2::new(127.0, 116.0) });
+    // 2: Small building
+    blue_atlas.add_texture(Rect { min: Vec2::new(129.0, 64.0), max: Vec2::new(182.0, 116.0) });
+    // 3: Tall tower
+    blue_atlas.add_texture(Rect { min: Vec2::new(184.0, 22.0), max: Vec2::new(237.0, 116.0) });
+    let building_blue_atlas = texture_atlases.add(blue_atlas);
 
     let red_bld_tex = asset_server.load("Level/Building/RedBuilding.png");
-    let building_red_atlas = texture_atlases.add(TextureAtlas::from_grid(
-        red_bld_tex, Vec2::new(96.0, 128.0), 2, 1,
-    ));
+    let mut red_atlas = TextureAtlas::new_empty(red_bld_tex, Vec2::new(240.0, 128.0));
+    // 0: Large castle
+    red_atlas.add_texture(Rect { min: Vec2::new(0.0, 2.0), max: Vec2::new(95.0, 116.0) });
+    // 1: Small tower
+    red_atlas.add_texture(Rect { min: Vec2::new(96.0, 43.0), max: Vec2::new(127.0, 116.0) });
+    // 2: Small building
+    red_atlas.add_texture(Rect { min: Vec2::new(129.0, 64.0), max: Vec2::new(182.0, 116.0) });
+    // 3: Tall tower
+    red_atlas.add_texture(Rect { min: Vec2::new(184.0, 22.0), max: Vec2::new(237.0, 116.0) });
+    let building_red_atlas = texture_atlases.add(red_atlas);
 
     // ── Environment ─────────────────────────────────────────────────
     let grass_tex = asset_server.load("Level/Ground/grass.png");
@@ -284,20 +299,22 @@ pub fn spawn_building_with_sprite(
 ) -> Entity {
     let building = Building::new(building_type);
 
-    // Big castle sprite (index 0) for TownHall, small castle (index 1) for others
-    let sprite_index = match building_type {
-        BuildingType::TownHall => 0,
-        _ => 1,
-    };
-
-    let scale = match building_type {
-        BuildingType::TownHall => 1.2,
-        BuildingType::GuardTower => 0.7,
-        _ => 0.8,
+    // Pick atlas (blue vs red) and sprite index per building type:
+    //   Atlas indices: 0=large castle, 1=small tower, 2=small building, 3=tall tower
+    let (atlas, sprite_index, scale) = match building_type {
+        BuildingType::TownHall     => (sprites.building_blue_atlas.clone(), 0, 1.2),  // Large castle
+        BuildingType::Inn          => (sprites.building_red_atlas.clone(),  2, 1.0),  // Small building (red)
+        BuildingType::Market       => (sprites.building_blue_atlas.clone(), 2, 1.0),  // Small building (blue)
+        BuildingType::Temple       => (sprites.building_blue_atlas.clone(), 3, 0.9),  // Tall tower (blue)
+        BuildingType::GuardTower   => (sprites.building_red_atlas.clone(),  1, 1.0),  // Small tower (red)
+        BuildingType::WizardTower  => (sprites.building_blue_atlas.clone(), 1, 1.0),  // Small tower (blue)
+        BuildingType::Blacksmith   => (sprites.building_red_atlas.clone(),  2, 1.0),  // Small building (red)
+        BuildingType::Alchemist    => (sprites.building_blue_atlas.clone(), 2, 0.9),  // Small building (blue)
+        BuildingType::Barracks     => (sprites.building_red_atlas.clone(),  0, 0.8),  // Large castle (red, smaller)
     };
 
     commands.spawn_bundle(SpriteSheetBundle {
-        texture_atlas: sprites.building_blue_atlas.clone(),
+        texture_atlas: atlas,
         transform: Transform::from_translation(position)
             .with_scale(Vec3::splat(scale)),
         sprite: TextureAtlasSprite { index: sprite_index, ..Default::default() },
