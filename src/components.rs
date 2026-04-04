@@ -957,6 +957,92 @@ pub struct Merchant {
 }
 
 // ============================================================
+// TRADE CARAVANS (Market Tier 2+)
+// ============================================================
+
+/// Rare items carried by trade caravans — provide temporary kingdom-wide buffs
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RareItem {
+    EnchantedWeapons, // +5 ATK for all heroes for 2 game-days
+    BlessedArmor,     // +4 DEF for all heroes for 2 game-days
+    HealingElixirs,   // Restores 30% HP to all heroes on arrival
+    SwiftBoots,       // +15% hero speed for 2 game-days
+    MoraleBanner,     // +20 morale to all heroes on arrival
+}
+
+impl RareItem {
+    pub fn random() -> Self {
+        match (rand::random::<f32>() * 5.0) as u32 {
+            0 => RareItem::EnchantedWeapons,
+            1 => RareItem::BlessedArmor,
+            2 => RareItem::HealingElixirs,
+            3 => RareItem::SwiftBoots,
+            _ => RareItem::MoraleBanner,
+        }
+    }
+
+    pub fn display_name(&self) -> &str {
+        match self {
+            RareItem::EnchantedWeapons => "Enchanted Weapons",
+            RareItem::BlessedArmor => "Blessed Armor",
+            RareItem::HealingElixirs => "Healing Elixirs",
+            RareItem::SwiftBoots => "Swift Boots",
+            RareItem::MoraleBanner => "Morale Banner",
+        }
+    }
+
+    pub fn cost(&self) -> f32 {
+        match self {
+            RareItem::EnchantedWeapons => 80.0,
+            RareItem::BlessedArmor => 80.0,
+            RareItem::HealingElixirs => 60.0,
+            RareItem::SwiftBoots => 50.0,
+            RareItem::MoraleBanner => 40.0,
+        }
+    }
+
+    /// Duration of the buff in game-time seconds (2 game-days = 960s)
+    pub fn buff_duration(&self) -> f32 {
+        match self {
+            RareItem::HealingElixirs | RareItem::MoraleBanner => 0.0, // Instant effect
+            _ => 960.0, // 2 game-days
+        }
+    }
+}
+
+/// Trade caravan spawned by Market Tier 2+ — carries a rare item for purchase
+#[derive(Component)]
+pub struct TradeCaravan {
+    pub item: RareItem,
+    pub destination: Vec2,
+    pub has_arrived: bool,
+    pub leave_timer: f32,
+}
+
+/// Tracks active rare-item buffs applied to the kingdom
+pub struct ActiveBuffs {
+    pub atk_bonus: f32,
+    pub atk_timer: f32,
+    pub def_bonus: f32,
+    pub def_timer: f32,
+    pub speed_bonus: f32,
+    pub speed_timer: f32,
+}
+
+impl Default for ActiveBuffs {
+    fn default() -> Self {
+        Self {
+            atk_bonus: 0.0,
+            atk_timer: 0.0,
+            def_bonus: 0.0,
+            def_timer: 0.0,
+            speed_bonus: 0.0,
+            speed_timer: 0.0,
+        }
+    }
+}
+
+// ============================================================
 // FOG OF WAR
 // ============================================================
 
