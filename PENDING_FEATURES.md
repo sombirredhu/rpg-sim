@@ -37,7 +37,7 @@
 - [x] Warrior Fortify (consistent damage bonus)
 - [x] Healer healing nearby allies
 - [x] Warrior Fortify as damage reduction AURA for nearby allies
-- [ ] Archer Volley as actual AoE arrow rain on clustered enemies
+- [x] Archer Volley as actual AoE arrow rain on clustered enemies
 - [ ] Mage Arcane Surge as channelled multi-target blast
 - [ ] Healer Sanctuary ability (healing pulse that revives fallen heroes)
 - [ ] Rogue stealth mechanic (enters camps unseen, priority kills)
@@ -200,7 +200,7 @@
 |----------|------------|---------|-------|
 | Core Loop | 6 | 1 | 7 |
 | Indirect Control | 5 | 2 | 7 |
-| Hero Classes | 12 | 6 | 18 |
+| Hero Classes | 13 | 5 | 18 |
 | Buildings | 16 | 2 | 18 |
 | Roads | 4 | 1 | 5 |
 | Economy | 7 | 4 | 11 |
@@ -213,6 +213,6 @@
 | Monetization | 0 | 5 | 5 |
 | Emergent | 3 | 4 | 7 |
 | Other | 0 | 7 | 7 |
-| **TOTAL** | **~91** | **~62** | **~153** |
+| **TOTAL** | **~92** | **~61** | **~153** |
 
 **Approximate completion: ~59% of GDD features implemented**
