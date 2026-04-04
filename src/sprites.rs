@@ -182,6 +182,7 @@ pub fn spawn_hero_with_sprite(
     .insert(HeroState::Idle)
     .insert(HeroDecisionTimer::default())
     .insert(AttackCooldown::default())
+    .insert(HeroEquipment::default())
     .id()
 }
 

@@ -1079,6 +1079,135 @@ impl Default for EraState {
 }
 
 // ============================================================
+// EQUIPMENT / CRAFTING
+// ============================================================
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum EquipmentSlot {
+    Weapon,
+    Armor,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum EquipmentTier {
+    Iron,     // Blacksmith tier 0
+    Steel,    // Blacksmith tier 1
+    Mithril,  // Blacksmith tier 2
+    Legendary, // Blacksmith tier 3
+}
+
+impl EquipmentTier {
+    pub fn display_name(&self) -> &str {
+        match self {
+            EquipmentTier::Iron => "Iron",
+            EquipmentTier::Steel => "Steel",
+            EquipmentTier::Mithril => "Mithril",
+            EquipmentTier::Legendary => "Legendary",
+        }
+    }
+
+    pub fn craft_cost(&self) -> f32 {
+        match self {
+            EquipmentTier::Iron => 40.0,
+            EquipmentTier::Steel => 80.0,
+            EquipmentTier::Mithril => 150.0,
+            EquipmentTier::Legendary => 300.0,
+        }
+    }
+
+    /// Tier available at given blacksmith upgrade tier
+    pub fn from_blacksmith_tier(tier: u32) -> Self {
+        match tier {
+            0 => EquipmentTier::Iron,
+            1 => EquipmentTier::Steel,
+            2 => EquipmentTier::Mithril,
+            _ => EquipmentTier::Legendary,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Equipment {
+    pub slot: EquipmentSlot,
+    pub tier: EquipmentTier,
+    pub atk_bonus: f32,
+    pub def_bonus: f32,
+}
+
+impl Equipment {
+    pub fn weapon(tier: EquipmentTier) -> Self {
+        let (atk, def) = match tier {
+            EquipmentTier::Iron => (4.0, 0.0),
+            EquipmentTier::Steel => (8.0, 1.0),
+            EquipmentTier::Mithril => (14.0, 2.0),
+            EquipmentTier::Legendary => (22.0, 4.0),
+        };
+        Self { slot: EquipmentSlot::Weapon, tier, atk_bonus: atk, def_bonus: def }
+    }
+
+    pub fn armor(tier: EquipmentTier) -> Self {
+        let (atk, def) = match tier {
+            EquipmentTier::Iron => (0.0, 3.0),
+            EquipmentTier::Steel => (1.0, 6.0),
+            EquipmentTier::Mithril => (2.0, 10.0),
+            EquipmentTier::Legendary => (4.0, 16.0),
+        };
+        Self { slot: EquipmentSlot::Armor, tier, atk_bonus: atk, def_bonus: def }
+    }
+
+    pub fn display_name(&self) -> String {
+        let slot_name = match self.slot {
+            EquipmentSlot::Weapon => "Weapon",
+            EquipmentSlot::Armor => "Armor",
+        };
+        format!("{} {}", self.tier.display_name(), slot_name)
+    }
+}
+
+/// Component attached to heroes tracking their equipment
+#[derive(Component, Debug, Clone, Default)]
+pub struct HeroEquipment {
+    pub weapon: Option<Equipment>,
+    pub armor: Option<Equipment>,
+}
+
+impl HeroEquipment {
+    pub fn total_atk_bonus(&self) -> f32 {
+        let w = self.weapon.as_ref().map_or(0.0, |e| e.atk_bonus);
+        let a = self.armor.as_ref().map_or(0.0, |e| e.atk_bonus);
+        w + a
+    }
+
+    pub fn total_def_bonus(&self) -> f32 {
+        let w = self.weapon.as_ref().map_or(0.0, |e| e.def_bonus);
+        let a = self.armor.as_ref().map_or(0.0, |e| e.def_bonus);
+        w + a
+    }
+
+    /// Returns the best tier the hero currently has, or None
+    pub fn best_tier(&self) -> Option<EquipmentTier> {
+        let tiers: Vec<EquipmentTier> = [&self.weapon, &self.armor]
+            .iter()
+            .filter_map(|e| e.as_ref().map(|eq| eq.tier))
+            .collect();
+        // Higher enum variant = better tier
+        tiers.into_iter().max_by_key(|t| *t as u32)
+    }
+
+    /// Check if hero needs an upgrade for the given slot at the given tier
+    pub fn needs_upgrade(&self, slot: EquipmentSlot, available_tier: EquipmentTier) -> bool {
+        let current = match slot {
+            EquipmentSlot::Weapon => &self.weapon,
+            EquipmentSlot::Armor => &self.armor,
+        };
+        match current {
+            None => true,
+            Some(eq) => (available_tier as u32) > (eq.tier as u32),
+        }
+    }
+}
+
+// ============================================================
 // BUILDING TIER ABILITIES
 // ============================================================
 

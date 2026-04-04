@@ -3,7 +3,7 @@ use crate::components::*;
 
 /// System: Heroes attack enemies they're targeting
 pub fn hero_attack_system(
-    mut heroes: Query<(Entity, &Hero, &HeroStats, &HeroState, &mut AttackCooldown, &Transform)>,
+    mut heroes: Query<(Entity, &Hero, &HeroStats, &HeroEquipment, &HeroState, &mut AttackCooldown, &Transform)>,
     mut enemies: Query<(&mut EnemyStats, &Transform), (With<Enemy>, Without<Hero>)>,
     game_time: Res<GameTime>,
     time: Res<Time>,
@@ -13,7 +13,7 @@ pub fn hero_attack_system(
         return;
     }
 
-    for (_hero_entity, hero, stats, state, mut cooldown, hero_transform) in heroes.iter_mut() {
+    for (_hero_entity, hero, stats, equipment, state, mut cooldown, hero_transform) in heroes.iter_mut() {
         cooldown.timer -= dt;
 
         if let HeroState::AttackingEnemy { target_entity } = state {
@@ -27,8 +27,9 @@ pub fn hero_attack_system(
                 let dist = (enemy_pos - hero_pos).length();
 
                 if dist <= stats.attack_range && enemy_stats.hp > 0.0 {
-                    // Calculate damage
-                    let mut damage = stats.attack - enemy_stats.defense;
+                    // Calculate damage (base + equipment bonuses)
+                    let total_attack = stats.attack + equipment.total_atk_bonus();
+                    let mut damage = total_attack - enemy_stats.defense;
 
                     // Class-specific bonuses
                     match hero.class {
@@ -67,7 +68,7 @@ pub fn hero_attack_system(
 /// System: Enemies attack heroes and buildings
 pub fn enemy_attack_system(
     mut enemies: Query<(&Enemy, &EnemyStats, &EnemyAi, &mut AttackCooldown, &Transform)>,
-    mut heroes: Query<(Entity, &mut HeroStats, &mut HeroState, &Transform), (With<Hero>, Without<Enemy>)>,
+    mut heroes: Query<(Entity, &mut HeroStats, &HeroEquipment, &mut HeroState, &Transform), (With<Hero>, Without<Enemy>)>,
     mut buildings: Query<(&mut Building, &Transform), (Without<Hero>, Without<Enemy>)>,
     game_time: Res<GameTime>,
     time: Res<Time>,
@@ -91,12 +92,13 @@ pub fn enemy_attack_system(
 
         if let Some(target) = ai.target {
             // Try to attack hero
-            if let Ok((_hero_entity, mut hero_stats, mut hero_state, hero_transform)) = heroes.get_mut(target) {
+            if let Ok((_hero_entity, mut hero_stats, hero_equipment, mut hero_state, hero_transform)) = heroes.get_mut(target) {
                 let hero_pos = Vec2::new(hero_transform.translation.x, hero_transform.translation.y);
                 let dist = (hero_pos - enemy_pos).length();
 
                 if dist <= stats.attack_range && hero_stats.hp > 0.0 {
-                    let base_damage = (stats.attack - hero_stats.defense).max(1.0);
+                    let total_defense = hero_stats.defense + hero_equipment.total_def_bonus();
+                    let base_damage = (stats.attack - total_defense).max(1.0);
                     let damage = base_damage * (1.0 - hero_stats.fortify_reduction);
                     hero_stats.hp -= damage;
 
