@@ -114,6 +114,7 @@ fn main() {
         .add_system(features::resource_node_system)
         .add_system(features::resource_bounty_system)
         .add_system(features::building_bonuses_system)
+        .add_system(features::blacksmith_crafting_system)
         .add_system(features::apply_building_bonuses_system)
         .add_system(features::cathedral_income_system)
         .add_system(features::hero_idle_leave_system)

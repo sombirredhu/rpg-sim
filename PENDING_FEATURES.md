@@ -61,7 +61,7 @@
 - [x] Barracks: extra hero cap
 - [x] Wizard Tower: mage damage bonus
 - [x] Market Tier 2: trade caravans with rare items
-- [ ] Equipment crafting at Blacksmith
+- [x] Equipment crafting at Blacksmith
 - [ ] Potion crafting at Alchemist
 - [ ] Barracks squad formation bounties
 
@@ -201,7 +201,7 @@
 | Core Loop | 6 | 1 | 7 |
 | Indirect Control | 5 | 2 | 7 |
 | Hero Classes | 12 | 6 | 18 |
-| Buildings | 15 | 3 | 18 |
+| Buildings | 16 | 2 | 18 |
 | Roads | 4 | 1 | 5 |
 | Economy | 7 | 4 | 11 |
 | Enemies | 12 | 3 | 15 |
@@ -213,6 +213,6 @@
 | Monetization | 0 | 5 | 5 |
 | Emergent | 3 | 4 | 7 |
 | Other | 0 | 7 | 7 |
-| **TOTAL** | **~90** | **~63** | **~153** |
+| **TOTAL** | **~91** | **~62** | **~153** |
 
 **Approximate completion: ~59% of GDD features implemented**

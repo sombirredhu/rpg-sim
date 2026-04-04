@@ -942,7 +942,7 @@ pub fn inspect_system(
     mouse_input: Res<Input<MouseButton>>,
     windows: Res<Windows>,
     camera: Query<(&Camera, &Transform, &OrthographicProjection), With<MainCamera>>,
-    heroes: Query<(Entity, &Hero, &HeroStats, &HeroState, &Transform), Without<Building>>,
+    heroes: Query<(Entity, &Hero, &HeroStats, &HeroEquipment, &HeroState, &Transform), Without<Building>>,
     buildings: Query<(Entity, &Building, &Transform), Without<Hero>>,
     enemies: Query<(Entity, &Enemy, &EnemyStats, &Transform), (Without<Hero>, Without<Building>)>,
     mut alerts: ResMut<GameAlerts>,
@@ -962,7 +962,7 @@ pub fn inspect_system(
         };
 
         // Check heroes
-        for (_e, hero, stats, state, t) in heroes.iter() {
+        for (_e, hero, stats, equipment, state, t) in heroes.iter() {
             let pos = Vec2::new(t.translation.x, t.translation.y);
             if (pos - world).length() < 20.0 {
                 let state_str = match state {
@@ -975,11 +975,20 @@ pub fn inspect_system(
                     HeroState::Dead { .. } => "Dead",
                 };
                 let leg = if hero.is_legendary { " [LEGENDARY]" } else { "" };
+                let equip_atk = equipment.total_atk_bonus();
+                let equip_def = equipment.total_def_bonus();
+                let equip_str = if equip_atk > 0.0 || equip_def > 0.0 {
+                    let w = equipment.weapon.as_ref().map_or("None".to_string(), |e| e.display_name());
+                    let a = equipment.armor.as_ref().map_or("None".to_string(), |e| e.display_name());
+                    format!(" | Gear: W:{} A:{} (+{:.0}atk +{:.0}def)", w, a, equip_atk, equip_def)
+                } else {
+                    String::new()
+                };
                 alerts.push(format!(
-                    "{}{} Lv{} | HP:{:.0}/{:.0} ATK:{:.0} DEF:{:.0} SPD:{:.0} | {} | {:?} | Morale:{:.0}",
+                    "{}{} Lv{} | HP:{:.0}/{:.0} ATK:{:.0} DEF:{:.0} SPD:{:.0} | {} | {:?} | Morale:{:.0}{}",
                     hero.class.display_name(), leg, hero.level,
-                    stats.hp, stats.max_hp, stats.attack, stats.defense, stats.speed,
-                    state_str, hero.personality, hero.morale
+                    stats.hp, stats.max_hp, stats.attack + equip_atk, stats.defense + equip_def, stats.speed,
+                    state_str, hero.personality, hero.morale, equip_str
                 ));
                 return;
             }
@@ -1077,7 +1086,101 @@ pub fn spawn_fog_of_war(mut commands: Commands) {
 }
 
 // ================================================================
-// 16. APPLY BUILDING BONUSES TO GAMEPLAY
+// 16. BLACKSMITH EQUIPMENT CRAFTING
+// ================================================================
+
+/// Heroes periodically visit the Blacksmith to get equipment crafted.
+/// The treasury pays for crafting. Blacksmith tier determines equipment quality.
+/// Heroes prioritise getting a weapon first, then armor.
+pub fn blacksmith_crafting_system(
+    mut heroes: Query<(Entity, &Hero, &HeroStats, &mut HeroEquipment, &mut HeroState, &Transform)>,
+    buildings: Query<(&Building, &Transform), Without<Hero>>,
+    mut economy: ResMut<GameEconomy>,
+    game_time: Res<GameTime>,
+    time: Res<Time>,
+    mut alerts: ResMut<GameAlerts>,
+    mut craft_cooldown: Local<f32>,
+) {
+    let dt = time.delta_seconds() * game_time.speed_multiplier;
+    if dt == 0.0 { return; }
+
+    // Only check for crafting every 5 seconds to avoid spamming
+    *craft_cooldown -= dt;
+    if *craft_cooldown > 0.0 { return; }
+    *craft_cooldown = 5.0;
+
+    // Find the best blacksmith (highest tier, not destroyed)
+    let best_blacksmith = buildings.iter()
+        .filter(|(b, _)| b.building_type == BuildingType::Blacksmith && !b.is_destroyed)
+        .max_by_key(|(b, _)| b.tier);
+
+    let (blacksmith, blacksmith_transform) = match best_blacksmith {
+        Some(b) => b,
+        None => return, // No blacksmith built
+    };
+
+    let bs_pos = Vec2::new(blacksmith_transform.translation.x, blacksmith_transform.translation.y);
+    let available_tier = EquipmentTier::from_blacksmith_tier(blacksmith.tier);
+    let craft_cost = available_tier.craft_cost();
+
+    for (_entity, hero, _stats, mut equipment, mut state, transform) in heroes.iter_mut() {
+        // Only craft for idle or resting heroes (not dead, not fighting)
+        let can_craft = matches!(*state, HeroState::Idle | HeroState::Resting);
+        if !can_craft { continue; }
+
+        // Determine which slot needs an upgrade
+        let slot = if equipment.needs_upgrade(EquipmentSlot::Weapon, available_tier) {
+            Some(EquipmentSlot::Weapon)
+        } else if equipment.needs_upgrade(EquipmentSlot::Armor, available_tier) {
+            Some(EquipmentSlot::Armor)
+        } else {
+            None
+        };
+
+        let slot = match slot {
+            Some(s) => s,
+            None => continue, // Hero is fully equipped at current tier
+        };
+
+        let hero_pos = Vec2::new(transform.translation.x, transform.translation.y);
+        let dist_to_blacksmith = (hero_pos - bs_pos).length();
+
+        // If hero is near the blacksmith, craft the equipment
+        if dist_to_blacksmith < 50.0 {
+            if economy.gold < craft_cost {
+                continue; // Can't afford it
+            }
+
+            economy.gold -= craft_cost;
+            economy.total_spent += craft_cost;
+
+            let new_equipment = match slot {
+                EquipmentSlot::Weapon => Equipment::weapon(available_tier),
+                EquipmentSlot::Armor => Equipment::armor(available_tier),
+            };
+
+            let equip_name = new_equipment.display_name();
+            match slot {
+                EquipmentSlot::Weapon => equipment.weapon = Some(new_equipment),
+                EquipmentSlot::Armor => equipment.armor = Some(new_equipment),
+            }
+
+            alerts.push(format!(
+                "{} crafted {} at the Blacksmith! (-{:.0}g)",
+                hero.class.display_name(), equip_name, craft_cost
+            ));
+
+            // After crafting, go back to idle
+            *state = HeroState::Idle;
+        } else {
+            // Move hero toward the blacksmith
+            *state = HeroState::MovingTo { target: bs_pos };
+        }
+    }
+}
+
+// ================================================================
+// 17. APPLY BUILDING BONUSES TO GAMEPLAY
 // ================================================================
 
 /// Apply blacksmith ATK/DEF bonuses and alchemist recovery speed
