@@ -346,6 +346,172 @@ pub fn merchant_movement_system(
 }
 
 // ================================================================
+// 4b. TRADE CARAVANS — Market Tier 2+ rare item caravans
+// ================================================================
+
+/// Spawns trade caravans with rare items when Market is Tier 2+
+pub fn trade_caravan_spawn_system(
+    mut commands: Commands,
+    game_time: Res<GameTime>,
+    buildings: Query<&Building>,
+    economy: Res<GameEconomy>,
+    time: Res<Time>,
+    mut timer: Local<f32>,
+    mut alerts: ResMut<GameAlerts>,
+) {
+    if game_time.is_night() { return; } // Caravans only during day
+
+    // Check if any Market is Tier 2+
+    let has_market_t2 = buildings.iter().any(|b| {
+        b.building_type == BuildingType::Market && b.tier >= 2 && !b.is_destroyed
+    });
+    if !has_market_t2 { return; }
+
+    let dt = time.delta_seconds() * game_time.speed_multiplier;
+    *timer -= dt;
+    if *timer > 0.0 { return; }
+    *timer = game_time.day_length * 2.0; // Once every 2 game-days
+
+    let item = RareItem::random();
+    let cost = item.cost();
+
+    // Don't spawn if player can't afford it
+    if economy.gold < cost { return; }
+
+    let angle = rand::random::<f32>() * TAU;
+    let start = Vec2::new(angle.cos() * 550.0, angle.sin() * 550.0);
+
+    commands.spawn_bundle(SpriteBundle {
+        sprite: Sprite {
+            color: Color::rgb(0.95, 0.6, 0.1), // Orange-gold for trade caravans
+            custom_size: Some(Vec2::new(16.0, 16.0)),
+            ..Default::default()
+        },
+        transform: Transform::from_translation(Vec3::new(start.x, start.y, 9.0)),
+        ..Default::default()
+    })
+    .insert(TradeCaravan {
+        item,
+        destination: Vec2::ZERO,
+        has_arrived: false,
+        leave_timer: 20.0,
+    });
+
+    alerts.push(format!(
+        "Trade caravan with {} approaching! (cost: {:.0}g)",
+        item.display_name(),
+        cost
+    ));
+}
+
+/// Moves trade caravans toward town, applies rare item buff on arrival
+pub fn trade_caravan_movement_system(
+    mut commands: Commands,
+    mut caravans: Query<(Entity, &mut TradeCaravan, &mut Transform)>,
+    mut economy: ResMut<GameEconomy>,
+    mut active_buffs: ResMut<ActiveBuffs>,
+    mut heroes: Query<(&mut Hero, &mut HeroStats)>,
+    game_time: Res<GameTime>,
+    time: Res<Time>,
+    mut alerts: ResMut<GameAlerts>,
+) {
+    let dt = time.delta_seconds() * game_time.speed_multiplier;
+    if dt == 0.0 { return; }
+
+    for (entity, mut caravan, mut transform) in caravans.iter_mut() {
+        let pos = Vec2::new(transform.translation.x, transform.translation.y);
+
+        if !caravan.has_arrived {
+            let dir = (caravan.destination - pos).normalize_or_zero();
+            transform.translation.x += dir.x * 35.0 * dt;
+            transform.translation.y += dir.y * 35.0 * dt;
+
+            if (caravan.destination - pos).length() < 30.0 {
+                caravan.has_arrived = true;
+                let cost = caravan.item.cost();
+
+                // Auto-purchase if player can afford it
+                if economy.gold >= cost {
+                    economy.gold -= cost;
+                    economy.total_spent += cost;
+
+                    // Apply the rare item effect
+                    match caravan.item {
+                        RareItem::EnchantedWeapons => {
+                            active_buffs.atk_bonus = 5.0;
+                            active_buffs.atk_timer = caravan.item.buff_duration();
+                            alerts.push("Enchanted Weapons! All heroes +5 ATK for 2 days".into());
+                        }
+                        RareItem::BlessedArmor => {
+                            active_buffs.def_bonus = 4.0;
+                            active_buffs.def_timer = caravan.item.buff_duration();
+                            alerts.push("Blessed Armor! All heroes +4 DEF for 2 days".into());
+                        }
+                        RareItem::HealingElixirs => {
+                            for (_, mut stats) in heroes.iter_mut() {
+                                stats.hp = (stats.hp + stats.max_hp * 0.3).min(stats.max_hp);
+                            }
+                            alerts.push("Healing Elixirs! All heroes restored 30% HP".into());
+                        }
+                        RareItem::SwiftBoots => {
+                            active_buffs.speed_bonus = 0.15;
+                            active_buffs.speed_timer = caravan.item.buff_duration();
+                            alerts.push("Swift Boots! All heroes +15% speed for 2 days".into());
+                        }
+                        RareItem::MoraleBanner => {
+                            for (mut hero, _) in heroes.iter_mut() {
+                                hero.morale = (hero.morale + 20.0).min(100.0);
+                            }
+                            alerts.push("Morale Banner! All heroes +20 morale".into());
+                        }
+                    }
+                } else {
+                    alerts.push(format!(
+                        "Can't afford {} ({:.0}g) — caravan leaving",
+                        caravan.item.display_name(),
+                        cost
+                    ));
+                }
+            }
+        } else {
+            caravan.leave_timer -= dt;
+            if caravan.leave_timer <= 0.0 {
+                commands.entity(entity).despawn();
+            }
+        }
+    }
+}
+
+/// Tick down active buff timers and clear expired buffs
+pub fn active_buffs_system(
+    mut active_buffs: ResMut<ActiveBuffs>,
+    game_time: Res<GameTime>,
+    time: Res<Time>,
+) {
+    let dt = time.delta_seconds() * game_time.speed_multiplier;
+    if dt == 0.0 { return; }
+
+    if active_buffs.atk_timer > 0.0 {
+        active_buffs.atk_timer -= dt;
+        if active_buffs.atk_timer <= 0.0 {
+            active_buffs.atk_bonus = 0.0;
+        }
+    }
+    if active_buffs.def_timer > 0.0 {
+        active_buffs.def_timer -= dt;
+        if active_buffs.def_timer <= 0.0 {
+            active_buffs.def_bonus = 0.0;
+        }
+    }
+    if active_buffs.speed_timer > 0.0 {
+        active_buffs.speed_timer -= dt;
+        if active_buffs.speed_timer <= 0.0 {
+            active_buffs.speed_bonus = 0.0;
+        }
+    }
+}
+
+// ================================================================
 // 5. RESOURCE NODES — mining & lumber with resource bounties
 // ================================================================
 

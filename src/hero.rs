@@ -202,6 +202,7 @@ pub fn hero_movement_system(
     enemies: Query<&Transform, (With<Enemy>, Without<Hero>)>,
     bounty_board: Res<BountyBoard>,
     road_network: Res<RoadNetwork>,
+    active_buffs: Res<ActiveBuffs>,
     game_time: Res<GameTime>,
     time: Res<Time>,
 ) {
@@ -222,7 +223,7 @@ pub fn hero_movement_system(
                 } else {
                     let move_dir = dir.normalize();
                     let road_mult = road_network.speed_multiplier(pos);
-                    let speed = stats.speed * road_mult * dt;
+                    let speed = stats.speed * (1.0 + active_buffs.speed_bonus) * road_mult * dt;
                     transform.translation.x += move_dir.x * speed;
                     transform.translation.y += move_dir.y * speed;
 
@@ -240,7 +241,7 @@ pub fn hero_movement_system(
                     if dist > stats.attack_range {
                         let move_dir = dir.normalize();
                         let road_mult = road_network.speed_multiplier(pos);
-                        let speed = stats.speed * road_mult * dt;
+                        let speed = stats.speed * (1.0 + active_buffs.speed_bonus) * road_mult * dt;
                         transform.translation.x += move_dir.x * speed;
                         transform.translation.y += move_dir.y * speed;
                         apply_hero_facing(&mut transform, _hero.class, move_dir);
