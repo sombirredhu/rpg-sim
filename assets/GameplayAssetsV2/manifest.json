@@ -1,0 +1,115 @@
+{
+  "generated_at_utc": "2026-04-04T10:55:31.329986+00:00",
+  "source_root": "assets\\spritesheet_images\\Building",
+  "output_root": "assets\\GameplayAssetsV2",
+  "mapped_buildings": {
+    "TownHall": {
+      "source": "assets\\spritesheet_images\\Building\\Medieval castle progression sprite sheet.png",
+      "used_fallback": false,
+      "files": [
+        "assets\\GameplayAssetsV2\\buildings\\townhall\\lvl1.png",
+        "assets\\GameplayAssetsV2\\buildings\\townhall\\lvl2.png",
+        "assets\\GameplayAssetsV2\\buildings\\townhall\\lvl3.png"
+      ]
+    },
+    "Inn": {
+      "source": "assets\\spritesheet_images\\Building\\Medieval taverns through time.png",
+      "used_fallback": false,
+      "files": [
+        "assets\\GameplayAssetsV2\\buildings\\inn\\lvl1.png",
+        "assets\\GameplayAssetsV2\\buildings\\inn\\lvl2.png",
+        "assets\\GameplayAssetsV2\\buildings\\inn\\lvl3.png"
+      ]
+    },
+    "Market": {
+      "source": "assets\\spritesheet_images\\Building\\Medieval market progression in isometric style.png",
+      "used_fallback": false,
+      "files": [
+        "assets\\GameplayAssetsV2\\buildings\\market\\lvl1.png",
+        "assets\\GameplayAssetsV2\\buildings\\market\\lvl2.png",
+        "assets\\GameplayAssetsV2\\buildings\\market\\lvl3.png"
+      ]
+    },
+    "Temple": {
+      "source": "assets\\spritesheet_images\\Building\\Temple of Godess.png",
+      "used_fallback": false,
+      "files": [
+        "assets\\GameplayAssetsV2\\buildings\\temple\\lvl1.png",
+        "assets\\GameplayAssetsV2\\buildings\\temple\\lvl2.png",
+        "assets\\GameplayAssetsV2\\buildings\\temple\\lvl3.png"
+      ]
+    },
+    "GuardTower": {
+      "source": "assets\\spritesheet_images\\Building\\Evolution of guard towers.png",
+      "used_fallback": false,
+      "files": [
+        "assets\\GameplayAssetsV2\\buildings\\guard_tower\\lvl1.png",
+        "assets\\GameplayAssetsV2\\buildings\\guard_tower\\lvl2.png",
+        "assets\\GameplayAssetsV2\\buildings\\guard_tower\\lvl3.png"
+      ]
+    },
+    "WizardTower": {
+      "source": "assets\\spritesheet_images\\Building\\Gothic dark mage academies in isometric view.png",
+      "used_fallback": false,
+      "files": [
+        "assets\\GameplayAssetsV2\\buildings\\wizard_tower\\lvl1.png",
+        "assets\\GameplayAssetsV2\\buildings\\wizard_tower\\lvl2.png",
+        "assets\\GameplayAssetsV2\\buildings\\wizard_tower\\lvl3.png"
+      ]
+    },
+    "Blacksmith": {
+      "source": "assets\\spritesheet_images\\Building\\Armor smithy evolution in three stages.png",
+      "used_fallback": false,
+      "files": [
+        "assets\\GameplayAssetsV2\\buildings\\blacksmith\\lvl1.png",
+        "assets\\GameplayAssetsV2\\buildings\\blacksmith\\lvl2.png",
+        "assets\\GameplayAssetsV2\\buildings\\blacksmith\\lvl3.png"
+      ]
+    },
+    "Alchemist": {
+      "source": "assets\\spritesheet_images\\Building\\Alchemy shops through the ages.png",
+      "used_fallback": false,
+      "files": [
+        "assets\\GameplayAssetsV2\\buildings\\alchemist\\lvl1.png",
+        "assets\\GameplayAssetsV2\\buildings\\alchemist\\lvl2.png",
+        "assets\\GameplayAssetsV2\\buildings\\alchemist\\lvl3.png"
+      ]
+    },
+    "Barracks": {
+      "source": "assets\\spritesheet_images\\Building\\Medieval Army barracks through the ages.png",
+      "used_fallback": false,
+      "files": [
+        "assets\\GameplayAssetsV2\\buildings\\barracks\\lvl1.png",
+        "assets\\GameplayAssetsV2\\buildings\\barracks\\lvl2.png",
+        "assets\\GameplayAssetsV2\\buildings\\barracks\\lvl3.png"
+      ]
+    },
+    "MonsterDen": {
+      "source": "assets\\spritesheet_images\\Building\\Fortress of the bandit dens.png",
+      "used_fallback": false,
+      "files": [
+        "assets\\GameplayAssetsV2\\buildings\\monster_den\\lvl1.png",
+        "assets\\GameplayAssetsV2\\buildings\\monster_den\\lvl2.png",
+        "assets\\GameplayAssetsV2\\buildings\\monster_den\\lvl3.png"
+      ]
+    },
+    "Caravan": {
+      "source": "assets\\spritesheet_images\\Building\\Magical trade caravans in progression.png",
+      "used_fallback": false,
+      "files": [
+        "assets\\GameplayAssetsV2\\buildings\\caravan\\lvl1.png",
+        "assets\\GameplayAssetsV2\\buildings\\caravan\\lvl2.png",
+        "assets\\GameplayAssetsV2\\buildings\\caravan\\lvl3.png"
+      ]
+    }
+  },
+  "fallback_buildings": [],
+  "alternate_sheets_available": [
+    "assets\\spritesheet_images\\Building\\Archery barracks progression in fantasy style.png",
+    "assets\\spritesheet_images\\Building\\Medieval archer towers progression.png",
+    "assets\\spritesheet_images\\Building\\Magical mage towers at each level.png",
+    "assets\\spritesheet_images\\Building\\Medieval weapon smithies progression.png",
+    "assets\\spritesheet_images\\Building\\Progressive towers of the Black Mage.png",
+    "assets\\spritesheet_images\\Building\\Viking temples through the ages.png"
+  ]
+}

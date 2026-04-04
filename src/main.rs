@@ -12,6 +12,7 @@ mod economy;
 mod hero;
 mod building;
 mod enemy;
+mod audio;
 mod combat;
 mod day_night;
 mod ui;
@@ -56,13 +57,16 @@ fn main() {
         .add_event::<EnemyDeathEvent>()
         .add_event::<ThreatEscalationEvent>()
         .add_event::<HeroSpawnEvent>()
+        .add_event::<audio::SfxEvent>()
         // Startup systems (sprite loading MUST run first)
         .add_startup_system(sprites::load_sprite_assets)
+        .add_startup_system(audio::setup_audio)
         .add_startup_system(setup_camera)
-        .add_startup_system(ui::setup_ui)
         // Deferred startup that needs SpriteAssets
+        .add_startup_system_to_stage(StartupStage::PostStartup, ui::setup_ui)
         .add_startup_system_to_stage(StartupStage::PostStartup, sprites::spawn_ground_tiles)
         .add_startup_system_to_stage(StartupStage::PostStartup, sprites::spawn_trees)
+        .add_startup_system_to_stage(StartupStage::PostStartup, sprites::spawn_map_decorations)
         .add_startup_system_to_stage(StartupStage::PostStartup, building::spawn_initial_buildings)
         .add_startup_system_to_stage(StartupStage::PostStartup, enemy::spawn_initial_dens)
         .add_startup_system_to_stage(StartupStage::PostStartup, spawn_initial_heroes)
@@ -95,6 +99,7 @@ fn main() {
         .add_system(combat::enemy_attack_system)
         .add_system(combat::healer_system)
         .add_system(combat::enemy_reward_system)
+        .add_system(audio::play_sfx_system)
         .add_system(building::building_placement_system)
         .add_system(building::building_upgrade_system)
         .add_system(building::building_repair_system)
@@ -126,6 +131,8 @@ fn main() {
         .add_system(features::era_siege_system)
         .add_system(features::torch_defense_system)
         .add_system(features::sprite_animation_system)
+        .add_system(features::animation_mode_system)
+        .add_system(features::enemy_animation_mode_system)
         .add_system(features::inspect_system)
         .add_system(features::fog_of_war_system)
         .add_system(features::map_expansion_system)

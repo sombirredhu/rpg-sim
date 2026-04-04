@@ -1,11 +1,13 @@
 use bevy::prelude::*;
 use crate::components::*;
+use crate::sprites::SpriteAssets;
 use crate::camera::cursor_to_world_2d;
 
 /// Startup: Create the HUD UI
 pub fn setup_ui(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    sprites: Res<SpriteAssets>,
 ) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
 
@@ -38,50 +40,119 @@ pub fn setup_ui(
                 ..Default::default()
             })
             .with_children(|top_bar| {
-                // Gold display
-                top_bar.spawn_bundle(TextBundle {
-                    text: Text::with_section(
-                        "Gold: 500",
-                        TextStyle {
-                            font: font.clone(),
-                            font_size: 20.0,
-                            color: Color::rgb(1.0, 0.85, 0.0),
-                        },
-                        TextAlignment::default(),
-                    ),
+                // Gold display (icon + text row)
+                top_bar.spawn_bundle(NodeBundle {
+                    style: Style {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        ..Default::default()
+                    },
+                    color: UiColor(Color::NONE),
                     ..Default::default()
                 })
-                .insert(GoldText);
+                .with_children(|gold_row| {
+                    gold_row.spawn_bundle(ImageBundle {
+                        image: UiImage(sprites.icon_gold_coin.clone()),
+                        style: Style {
+                            size: Size::new(Val::Px(24.0), Val::Px(24.0)),
+                            margin: Rect {
+                                right: Val::Px(4.0),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    });
+                    gold_row.spawn_bundle(TextBundle {
+                        text: Text::with_section(
+                            "Gold: 500",
+                            TextStyle {
+                                font: font.clone(),
+                                font_size: 20.0,
+                                color: Color::rgb(1.0, 0.85, 0.0),
+                            },
+                            TextAlignment::default(),
+                        ),
+                        ..Default::default()
+                    })
+                    .insert(GoldText);
+                });
 
-                // Day/Night clock
-                top_bar.spawn_bundle(TextBundle {
-                    text: Text::with_section(
-                        "Day 1 - Dawn",
-                        TextStyle {
-                            font: font.clone(),
-                            font_size: 18.0,
-                            color: Color::WHITE,
-                        },
-                        TextAlignment::default(),
-                    ),
+                // Day/Night clock (icon + text)
+                top_bar.spawn_bundle(NodeBundle {
+                    style: Style {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        ..Default::default()
+                    },
+                    color: UiColor(Color::NONE),
                     ..Default::default()
                 })
-                .insert(DayNightText);
+                .with_children(|clock_row| {
+                    clock_row.spawn_bundle(ImageBundle {
+                        image: UiImage(sprites.icon_clock.clone()),
+                        style: Style {
+                            size: Size::new(Val::Px(20.0), Val::Px(20.0)),
+                            margin: Rect {
+                                right: Val::Px(4.0),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    });
+                    clock_row.spawn_bundle(TextBundle {
+                        text: Text::with_section(
+                            "Day 1 - Dawn",
+                            TextStyle {
+                                font: font.clone(),
+                                font_size: 18.0,
+                                color: Color::WHITE,
+                            },
+                            TextAlignment::default(),
+                        ),
+                        ..Default::default()
+                    })
+                    .insert(DayNightText);
+                });
 
-                // Kingdom rank
-                top_bar.spawn_bundle(TextBundle {
-                    text: Text::with_section(
-                        "Hamlet",
-                        TextStyle {
-                            font: font.clone(),
-                            font_size: 18.0,
-                            color: Color::rgb(0.7, 0.9, 1.0),
-                        },
-                        TextAlignment::default(),
-                    ),
+                // Kingdom rank (medal icon + text)
+                top_bar.spawn_bundle(NodeBundle {
+                    style: Style {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        ..Default::default()
+                    },
+                    color: UiColor(Color::NONE),
                     ..Default::default()
                 })
-                .insert(KingdomRankText);
+                .with_children(|rank_row| {
+                    rank_row.spawn_bundle(ImageBundle {
+                        image: UiImage(sprites.icon_medal.clone()),
+                        style: Style {
+                            size: Size::new(Val::Px(20.0), Val::Px(20.0)),
+                            margin: Rect {
+                                right: Val::Px(4.0),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    });
+                    rank_row.spawn_bundle(TextBundle {
+                        text: Text::with_section(
+                            "Hamlet",
+                            TextStyle {
+                                font: font.clone(),
+                                font_size: 18.0,
+                                color: Color::rgb(0.7, 0.9, 1.0),
+                            },
+                            TextAlignment::default(),
+                        ),
+                        ..Default::default()
+                    })
+                    .insert(KingdomRankText);
+                });
 
                 // Speed display
                 top_bar.spawn_bundle(TextBundle {
@@ -153,13 +224,55 @@ pub fn setup_ui(
             })
             .insert(BountyBoardUi)
             .with_children(|panel| {
+                // Header row with scroll icon
+                panel.spawn_bundle(NodeBundle {
+                    style: Style {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        margin: Rect {
+                            bottom: Val::Px(4.0),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                    color: UiColor(Color::NONE),
+                    ..Default::default()
+                })
+                .with_children(|header| {
+                    header.spawn_bundle(ImageBundle {
+                        image: UiImage(sprites.icon_bounty_scroll.clone()),
+                        style: Style {
+                            size: Size::new(Val::Px(22.0), Val::Px(22.0)),
+                            margin: Rect {
+                                right: Val::Px(6.0),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    });
+                    header.spawn_bundle(TextBundle {
+                        text: Text::with_section(
+                            "Bounty Board",
+                            TextStyle {
+                                font: font.clone(),
+                                font_size: 16.0,
+                                color: Color::rgb(1.0, 0.85, 0.0),
+                            },
+                            TextAlignment::default(),
+                        ),
+                        ..Default::default()
+                    });
+                });
+
+                // Bounty list text
                 panel.spawn_bundle(TextBundle {
                     text: Text::with_section(
-                        "Bounty Board",
+                        "",
                         TextStyle {
                             font: font.clone(),
-                            font_size: 16.0,
-                            color: Color::rgb(1.0, 0.85, 0.0),
+                            font_size: 13.0,
+                            color: Color::rgb(0.9, 0.9, 0.85),
                         },
                         TextAlignment::default(),
                     ),
@@ -299,11 +412,11 @@ pub fn update_hero_panel_ui(
     }
 
     info.push_str(&format!("Heroes: {}\n", count));
-    if class_counts[0] > 0 { info.push_str(&format!("  Warriors: {}\n", class_counts[0])); }
-    if class_counts[1] > 0 { info.push_str(&format!("  Archers: {}\n", class_counts[1])); }
-    if class_counts[2] > 0 { info.push_str(&format!("  Mages: {}\n", class_counts[2])); }
-    if class_counts[3] > 0 { info.push_str(&format!("  Rogues: {}\n", class_counts[3])); }
-    if class_counts[4] > 0 { info.push_str(&format!("  Healers: {}\n", class_counts[4])); }
+    if class_counts[0] > 0 { info.push_str(&format!("  [Sword] Warriors: {}\n", class_counts[0])); }
+    if class_counts[1] > 0 { info.push_str(&format!("  [Bow] Archers: {}\n", class_counts[1])); }
+    if class_counts[2] > 0 { info.push_str(&format!("  [Staff] Mages: {}\n", class_counts[2])); }
+    if class_counts[3] > 0 { info.push_str(&format!("  [Dagger] Rogues: {}\n", class_counts[3])); }
+    if class_counts[4] > 0 { info.push_str(&format!("  [Heart] Healers: {}\n", class_counts[4])); }
 
     // Show first few hero details
     let mut shown = 0;
@@ -425,27 +538,21 @@ pub fn update_bounty_board_ui(
         info.push_str("  No active bounties.\n");
     } else {
         for bounty in &active {
-            let type_icon = match bounty.bounty_type {
-                BountyType::Monster => "[M]",
-                BountyType::Exploration => "[E]",
-                BountyType::Objective => "[O]",
-                BountyType::Resource => "[R]",
-            };
-            let type_name = match bounty.bounty_type {
-                BountyType::Monster => "Monster",
-                BountyType::Exploration => "Explore",
-                BountyType::Objective => "Objective",
-                BountyType::Resource => "Resource",
+            let (type_icon, type_name) = match bounty.bounty_type {
+                BountyType::Monster => ("<<Sword>>", "Monster"),
+                BountyType::Exploration => ("<<Map>>", "Explore"),
+                BountyType::Objective => ("<<Shield>>", "Objective"),
+                BountyType::Resource => ("<<Pick>>", "Resource"),
             };
             let status = if bounty.assigned_hero.is_some() {
-                "In Progress"
+                ">> Active"
             } else {
-                "Available"
+                "Open"
             };
-            let danger_str: String = (0..bounty.danger_level).map(|_| '!').collect();
+            let danger_stars: String = (0..bounty.danger_level).map(|_| '*').collect();
             info.push_str(&format!(
-                "{} {} {:.0}g {}\n   Danger:{} | {}\n",
-                type_icon, type_name, bounty.gold_reward, danger_str, bounty.danger_level, status
+                " {} {} - {:.0}g\n   Risk:{} | {}\n",
+                type_icon, type_name, bounty.gold_reward, danger_stars, status
             ));
         }
     }
@@ -456,6 +563,21 @@ pub fn update_bounty_board_ui(
         "\nTotal: {} | Avail: {} | Active: {}\n",
         active.len(), available_count, in_progress_count
     ));
+
+    // ROI display: show lifetime bounty stats
+    let completed = bounty_board.total_bounties_completed;
+    let paid = bounty_board.total_bounty_gold_paid;
+    let returned = bounty_board.total_bounty_tax_returned;
+    let net_cost = paid - returned;
+    if completed > 0 {
+        let avg_cost = net_cost / completed as f32;
+        info.push_str(&format!(
+            "\n--- BOUNTY ROI ---\n Completed: {} | Paid: {:.0}g\n Tax back: +{:.0}g | Net: {:.0}g\n Avg/bounty: {:.0}g\n",
+            completed, paid, returned, net_cost, avg_cost
+        ));
+    } else {
+        info.push_str("\n--- BOUNTY ROI ---\n No bounties completed yet.\n");
+    }
 
     // Show adjustable bounty amount with affordability
     let amount = game_phase.manual_bounty_amount;

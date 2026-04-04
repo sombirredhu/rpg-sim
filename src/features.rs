@@ -27,6 +27,7 @@ pub fn road_placement_system(
     mut economy: ResMut<GameEconomy>,
     mut road_network: ResMut<RoadNetwork>,
     game_phase: Res<GamePhase>,
+    sprites: Res<SpriteAssets>,
     mut _alerts: ResMut<GameAlerts>,
 ) {
     // Only place roads while holding R + left click
@@ -61,10 +62,11 @@ pub fn road_placement_system(
 
         road_network.tiles.push(world_pos);
 
+        // Use the grassland stone road texture instead of plain color
         commands.spawn_bundle(SpriteBundle {
+            texture: sprites.road_stone_tex.clone(),
             sprite: Sprite {
-                color: Color::rgb(0.55, 0.45, 0.3),
-                custom_size: Some(Vec2::new(10.0, 10.0)),
+                custom_size: Some(Vec2::new(12.0, 12.0)),
                 ..Default::default()
             },
             transform: Transform::from_translation(Vec3::new(world_pos.x, world_pos.y, 1.0)),
@@ -360,6 +362,7 @@ pub fn merchant_movement_system(
 /// Spawns trade caravans with rare items when Market is Tier 2+
 pub fn trade_caravan_spawn_system(
     mut commands: Commands,
+    sprites: Res<SpriteAssets>,
     game_time: Res<GameTime>,
     buildings: Query<&Building>,
     economy: Res<GameEconomy>,
@@ -390,12 +393,9 @@ pub fn trade_caravan_spawn_system(
     let start = Vec2::new(angle.cos() * 550.0, angle.sin() * 550.0);
 
     commands.spawn_bundle(SpriteBundle {
-        sprite: Sprite {
-            color: Color::rgb(0.95, 0.6, 0.1), // Orange-gold for trade caravans
-            custom_size: Some(Vec2::new(16.0, 16.0)),
-            ..Default::default()
-        },
-        transform: Transform::from_translation(Vec3::new(start.x, start.y, 9.0)),
+        texture: sprites.caravan_sprites.lvl1.clone(),
+        transform: Transform::from_translation(Vec3::new(start.x, start.y, 9.0))
+            .with_scale(Vec3::splat(0.25)),
         ..Default::default()
     })
     .insert(TradeCaravan {
@@ -926,18 +926,158 @@ pub fn torch_defense_system(
 // ================================================================
 
 pub fn sprite_animation_system(
-    mut query: Query<(&mut SpriteAnimation, &mut TextureAtlasSprite)>,
+    mut query: Query<(&mut SpriteAnimation, &mut TextureAtlasSprite, &Handle<TextureAtlas>)>,
+    atlases: Res<Assets<TextureAtlas>>,
     time: Res<Time>,
 ) {
     let dt = time.delta_seconds();
 
-    for (mut anim, mut sprite) in query.iter_mut() {
+    for (mut anim, mut sprite, atlas_handle) in query.iter_mut() {
         anim.frame_timer += dt;
         if anim.frame_timer >= anim.frame_duration {
             anim.frame_timer = 0.0;
             anim.current_frame = (anim.current_frame + 1) % anim.frame_count;
-            sprite.index = anim.current_frame;
+            let idx = anim.atlas_index();
+
+            // Clamp to atlas bounds to prevent out-of-range panics during
+            // mode transitions (walk ↔ attack atlas swaps).
+            let max_idx = atlases
+                .get(atlas_handle)
+                .map(|a| a.textures.len())
+                .unwrap_or(1);
+
+            sprite.index = idx.min(max_idx.saturating_sub(1));
         }
+    }
+}
+
+/// System: Switch between walk / attack / hurt animation atlases based on entity state.
+///
+/// For heroes: AttackingEnemy → attack atlas, Dead → hurt atlas, else → walk atlas.
+/// For enemies with AnimationSet: uses similar logic based on proximity/combat.
+pub fn animation_mode_system(
+    mut query: Query<(
+        &HeroState,
+        &mut AnimationSet,
+        &mut SpriteAnimation,
+        &mut Handle<TextureAtlas>,
+        &mut TextureAtlasSprite,
+    )>,
+) {
+    for (state, mut anim_set, mut anim, mut atlas_handle, mut sprite) in query.iter_mut() {
+        let desired = match state {
+            HeroState::AttackingEnemy { .. } => AnimMode::Attack,
+            HeroState::Dead { .. } => AnimMode::Hurt,
+            _ => AnimMode::Walk,
+        };
+
+        if desired == anim_set.current_mode {
+            continue;
+        }
+
+        // Switch animation mode
+        anim_set.current_mode = desired;
+        anim.current_frame = 0;
+        anim.frame_timer = 0.0;
+
+        match desired {
+            AnimMode::Walk => {
+                *atlas_handle = anim_set.walk_atlas.clone();
+                anim.frame_count = anim_set.walk_frames;
+                anim.frames_per_row = anim_set.walk_frames;
+                anim.frame_duration = 1.0 / 8.0;
+            }
+            AnimMode::Attack => {
+                *atlas_handle = anim_set.attack_atlas.clone();
+                anim.frame_count = anim_set.attack_frames;
+                anim.frames_per_row = anim_set.attack_frames;
+                anim.frame_duration = 1.0 / 10.0;
+            }
+            AnimMode::Hurt => {
+                *atlas_handle = anim_set.hurt_atlas.clone();
+                anim.frame_count = anim_set.hurt_frames;
+                anim.frames_per_row = anim_set.hurt_frames;
+                if anim_set.hurt_rows == 1 {
+                    anim.row_offset = 0;
+                }
+                anim.frame_duration = 1.0 / 6.0;
+            }
+        }
+
+        // Immediately sync sprite index to prevent out-of-bounds on the new atlas
+        sprite.index = anim.atlas_index();
+    }
+}
+
+/// System: Switch animation mode for enemies based on their AI state.
+pub fn enemy_animation_mode_system(
+    mut query: Query<(
+        &EnemyAi,
+        &EnemyStats,
+        &mut AnimationSet,
+        &mut SpriteAnimation,
+        &mut Handle<TextureAtlas>,
+        &mut TextureAtlasSprite,
+        &Transform,
+    ), With<Enemy>>,
+    heroes: Query<&Transform, (With<Hero>, Without<Enemy>)>,
+) {
+    for (ai, stats, mut anim_set, mut anim, mut atlas_handle, mut sprite, transform) in query.iter_mut() {
+        // If enemy has a target and is within attack range → attack mode
+        let desired = if stats.hp <= 0.0 {
+            AnimMode::Hurt
+        } else if let Some(target_entity) = ai.target {
+            if let Ok(hero_tf) = heroes.get(target_entity) {
+                let dist = Vec2::new(
+                    transform.translation.x - hero_tf.translation.x,
+                    transform.translation.y - hero_tf.translation.y,
+                ).length();
+                if dist <= stats.attack_range * 1.2 {
+                    AnimMode::Attack
+                } else {
+                    AnimMode::Walk
+                }
+            } else {
+                AnimMode::Walk
+            }
+        } else {
+            AnimMode::Walk
+        };
+
+        if desired == anim_set.current_mode {
+            continue;
+        }
+
+        anim_set.current_mode = desired;
+        anim.current_frame = 0;
+        anim.frame_timer = 0.0;
+
+        match desired {
+            AnimMode::Walk => {
+                *atlas_handle = anim_set.walk_atlas.clone();
+                anim.frame_count = anim_set.walk_frames;
+                anim.frames_per_row = anim_set.walk_frames;
+                anim.frame_duration = 1.0 / 6.0;
+            }
+            AnimMode::Attack => {
+                *atlas_handle = anim_set.attack_atlas.clone();
+                anim.frame_count = anim_set.attack_frames;
+                anim.frames_per_row = anim_set.attack_frames;
+                anim.frame_duration = 1.0 / 8.0;
+            }
+            AnimMode::Hurt => {
+                *atlas_handle = anim_set.hurt_atlas.clone();
+                anim.frame_count = anim_set.hurt_frames;
+                anim.frames_per_row = anim_set.hurt_frames;
+                if anim_set.hurt_rows == 1 {
+                    anim.row_offset = 0;
+                }
+                anim.frame_duration = 1.0 / 4.0;
+            }
+        }
+
+        // Immediately sync sprite index to prevent out-of-bounds on the new atlas
+        sprite.index = anim.atlas_index();
     }
 }
 
@@ -1062,8 +1202,8 @@ pub fn fog_of_war_system(
 }
 
 pub fn spawn_fog_of_war(mut commands: Commands) {
-    let tile_size = 40.0;
-    let half_map = 600.0;
+    let tile_size = 80.0;
+    let half_map = 1500.0;
 
     let mut x = -half_map;
     while x < half_map {

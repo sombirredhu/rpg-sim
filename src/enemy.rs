@@ -50,7 +50,7 @@ pub fn monster_den_spawn_system(
 
 /// System: Enemy AI - wander and attack heroes/buildings
 pub fn enemy_ai_system(
-    mut enemies: Query<(Entity, &Enemy, &EnemyStats, &mut EnemyAi, &mut Transform), Without<Hero>>,
+    mut enemies: Query<(Entity, &Enemy, &EnemyStats, &mut EnemyAi, &mut Transform, Option<&mut SpriteAnimation>), Without<Hero>>,
     heroes: Query<(Entity, &Transform), (With<Hero>, Without<Enemy>)>,
     buildings: Query<(Entity, &Transform, &Building), (Without<Enemy>, Without<Hero>)>,
     game_time: Res<GameTime>,
@@ -61,7 +61,7 @@ pub fn enemy_ai_system(
         return;
     }
 
-    for (_entity, enemy, stats, mut ai, mut transform) in enemies.iter_mut() {
+    for (_entity, enemy, stats, mut ai, mut transform, mut anim_opt) in enemies.iter_mut() {
         if stats.hp <= 0.0 {
             continue;
         }
@@ -101,12 +101,20 @@ pub fn enemy_ai_system(
                 transform.translation.x += dir.x * stats.speed * dt;
                 transform.translation.y += dir.y * stats.speed * dt;
 
-                // Flip sprite based on movement direction
-                let base_scale = transform.scale.x.abs();
-                if dir.x < 0.0 {
-                    transform.scale.x = -base_scale;
+                // Update direction: use SpriteAnimation row for LPC enemies, flip for others
+                if let Some(ref mut anim) = anim_opt {
+                    if dir.y.abs() > dir.x.abs() {
+                        anim.row_offset = if dir.y > 0.0 { 0 } else { 2 };
+                    } else {
+                        anim.row_offset = if dir.x < 0.0 { 1 } else { 3 };
+                    }
                 } else {
-                    transform.scale.x = base_scale;
+                    let base_scale = transform.scale.x.abs();
+                    if dir.x < 0.0 {
+                        transform.scale.x = -base_scale;
+                    } else {
+                        transform.scale.x = base_scale;
+                    }
                 }
             }
         } else {
@@ -183,7 +191,7 @@ pub fn boss_raid_system(
 
     if matches!(kingdom.rank, KingdomRank::City | KingdomRank::Kingdom) {
         let angle = rand::random::<f32>() * TAU;
-        let spawn_pos = Vec2::new(angle.cos() * 500.0, angle.sin() * 500.0);
+        let spawn_pos = Vec2::new(angle.cos() * 1200.0, angle.sin() * 1200.0);
 
         spawn_enemy_with_sprite(
             &mut commands,
@@ -202,10 +210,10 @@ pub fn spawn_initial_dens(
     sprites: Res<SpriteAssets>,
 ) {
     let den_positions = [
-        (Vec2::new(300.0, 200.0), EnemyType::Goblin),
-        (Vec2::new(-350.0, -200.0), EnemyType::Goblin),
-        (Vec2::new(200.0, -300.0), EnemyType::Bandit),
-        (Vec2::new(-250.0, 350.0), EnemyType::Bandit),
+        (Vec2::new(700.0, 500.0), EnemyType::Goblin),
+        (Vec2::new(-800.0, -500.0), EnemyType::Goblin),
+        (Vec2::new(500.0, -700.0), EnemyType::Bandit),
+        (Vec2::new(-600.0, 800.0), EnemyType::Bandit),
     ];
 
     for (pos, enemy_type) in den_positions {

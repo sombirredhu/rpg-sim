@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use crate::audio::SfxEvent;
 use crate::components::*;
 
 /// System: Heroes attack enemies they're targeting
@@ -8,6 +9,7 @@ pub fn hero_attack_system(
     active_buffs: Res<ActiveBuffs>,
     game_time: Res<GameTime>,
     time: Res<Time>,
+    mut sfx_events: EventWriter<SfxEvent>,
 ) {
     let dt = time.delta_seconds() * game_time.speed_multiplier;
     if dt == 0.0 {
@@ -81,6 +83,7 @@ pub fn hero_attack_system(
 
                     damage = damage.max(1.0);
                     enemy_stats.hp -= damage;
+                    sfx_events.send(SfxEvent::HitImpact);
 
                     cooldown.timer = cooldown.interval;
                 }
@@ -106,6 +109,7 @@ pub fn enemy_attack_system(
     active_buffs: Res<ActiveBuffs>,
     game_time: Res<GameTime>,
     time: Res<Time>,
+    mut sfx_events: EventWriter<SfxEvent>,
 ) {
     let dt = time.delta_seconds() * game_time.speed_multiplier;
     if dt == 0.0 {
@@ -138,6 +142,7 @@ pub fn enemy_attack_system(
 
                     if hero_stats.hp <= 0.0 {
                         *hero_state = HeroState::Dead { respawn_timer: 30.0 };
+                        sfx_events.send(SfxEvent::DeathWomp);
                     }
 
                     cooldown.timer = cooldown.interval;
@@ -259,6 +264,7 @@ pub fn enemy_reward_system(
     mut heroes: Query<(&mut Hero, &HeroStats, &Transform)>,
     mut economy: ResMut<GameEconomy>,
     mut alerts: ResMut<GameAlerts>,
+    mut sfx_events: EventWriter<SfxEvent>,
 ) {
     for event in events.iter() {
         // Give XP to nearby heroes
@@ -270,6 +276,7 @@ pub fn enemy_reward_system(
         // Gold goes to treasury
         economy.gold += event.gold_reward;
         economy.total_earned += event.gold_reward;
+        sfx_events.send(SfxEvent::CoinReward);
 
         if event.gold_reward >= 50.0 {
             alerts.push(format!("Enemy slain! +{:.0} gold", event.gold_reward));

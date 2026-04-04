@@ -3,23 +3,22 @@ use crate::components::*;
 use crate::sprites::{SpriteAssets, spawn_hero_with_sprite};
 use std::f32::consts::TAU;
 
-fn apply_hero_facing(transform: &mut Transform, class: HeroClass, move_dir: Vec2) {
-    let base_scale = transform.scale.x.abs();
-    match class {
-        // Daniel warrior art faces opposite to the other hero sheets.
-        HeroClass::Warrior => {
-            if move_dir.x < 0.0 {
-                transform.scale.x = base_scale;
-            } else {
-                transform.scale.x = -base_scale;
-            }
+/// Set the LPC direction row based on movement direction.
+/// Row 0 = up, 1 = left, 2 = down, 3 = right.
+fn apply_hero_facing(anim: &mut SpriteAnimation, move_dir: Vec2) {
+    if move_dir.y.abs() > move_dir.x.abs() {
+        // Vertical movement dominates
+        if move_dir.y > 0.0 {
+            anim.row_offset = 0; // up
+        } else {
+            anim.row_offset = 2; // down
         }
-        _ => {
-            if move_dir.x < 0.0 {
-                transform.scale.x = -base_scale;
-            } else {
-                transform.scale.x = base_scale;
-            }
+    } else {
+        // Horizontal movement dominates
+        if move_dir.x < 0.0 {
+            anim.row_offset = 1; // left
+        } else {
+            anim.row_offset = 3; // right
         }
     }
 }
@@ -198,7 +197,7 @@ pub fn hero_ai_system(
 
 /// System: Move heroes based on their current state
 pub fn hero_movement_system(
-    mut heroes: Query<(&Hero, &HeroStats, &mut HeroState, &mut Transform)>,
+    mut heroes: Query<(&Hero, &HeroStats, &mut HeroState, &mut Transform, Option<&mut SpriteAnimation>)>,
     enemies: Query<&Transform, (With<Enemy>, Without<Hero>)>,
     bounty_board: Res<BountyBoard>,
     road_network: Res<RoadNetwork>,
@@ -211,7 +210,7 @@ pub fn hero_movement_system(
         return;
     }
 
-    for (_hero, stats, mut state, mut transform) in heroes.iter_mut() {
+    for (_hero, stats, mut state, mut transform, anim_opt) in heroes.iter_mut() {
         match &*state {
             HeroState::MovingTo { target } => {
                 let pos = Vec2::new(transform.translation.x, transform.translation.y);
@@ -227,7 +226,9 @@ pub fn hero_movement_system(
                     transform.translation.x += move_dir.x * speed;
                     transform.translation.y += move_dir.y * speed;
 
-                    apply_hero_facing(&mut transform, _hero.class, move_dir);
+                    if let Some(mut anim) = anim_opt {
+                        apply_hero_facing(&mut anim, move_dir);
+                    }
                 }
             }
             HeroState::AttackingEnemy { target_entity } => {
@@ -244,7 +245,9 @@ pub fn hero_movement_system(
                         let speed = stats.speed * (1.0 + active_buffs.speed_bonus) * road_mult * dt;
                         transform.translation.x += move_dir.x * speed;
                         transform.translation.y += move_dir.y * speed;
-                        apply_hero_facing(&mut transform, _hero.class, move_dir);
+                        if let Some(mut anim) = anim_opt {
+                            apply_hero_facing(&mut anim, move_dir);
+                        }
                     }
                 } else {
                     // Enemy no longer exists
@@ -263,7 +266,9 @@ pub fn hero_movement_system(
                         let speed = stats.speed * road_mult * dt;
                         transform.translation.x += move_dir.x * speed;
                         transform.translation.y += move_dir.y * speed;
-                        apply_hero_facing(&mut transform, _hero.class, move_dir);
+                        if let Some(mut anim) = anim_opt {
+                            apply_hero_facing(&mut anim, move_dir);
+                        }
                     }
                 } else {
                     *state = HeroState::Idle;

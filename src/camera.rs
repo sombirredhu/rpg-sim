@@ -13,14 +13,21 @@ pub fn cursor_to_world_2d(
     Some(camera_transform.translation.truncate() + centered * projection.scale)
 }
 
+/// Half-extent of the playable map in world units.
+pub const MAP_HALF_EXTENT: f32 = 1500.0;
+
 /// System: Camera pan with WASD/arrow keys and zoom with scroll
 pub fn camera_control_system(
     keyboard: Res<Input<KeyCode>>,
     mut scroll_events: EventReader<bevy::input::mouse::MouseWheel>,
     mut camera: Query<(&mut Transform, &mut OrthographicProjection), With<MainCamera>>,
+    windows: Res<Windows>,
     time: Res<Time>,
 ) {
     let dt = time.delta_seconds();
+    let window = windows.get_primary().unwrap();
+    let win_w = window.width();
+    let win_h = window.height();
 
     for (mut transform, mut projection) in camera.iter_mut() {
         let speed = 200.0 * projection.scale * dt;
@@ -52,5 +59,13 @@ pub fn camera_control_system(
         if keyboard.pressed(KeyCode::Minus) || keyboard.pressed(KeyCode::NumpadSubtract) {
             projection.scale = (projection.scale + 0.5 * dt).min(3.0);
         }
+
+        // Clamp camera so the viewport never leaves the map
+        let half_view_w = win_w * 0.5 * projection.scale;
+        let half_view_h = win_h * 0.5 * projection.scale;
+        let max_x = (MAP_HALF_EXTENT - half_view_w).max(0.0);
+        let max_y = (MAP_HALF_EXTENT - half_view_h).max(0.0);
+        transform.translation.x = transform.translation.x.clamp(-max_x, max_x);
+        transform.translation.y = transform.translation.y.clamp(-max_y, max_y);
     }
 }

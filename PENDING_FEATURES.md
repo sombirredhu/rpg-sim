@@ -22,7 +22,7 @@
 - [x] Manual bounty placement (Q key)
 - [x] Bounty Board UI panel (currently keyboard-only, no visual list)
 - [x] Dynamic bounty amount adjustment UI
-- [ ] Bounty pay-on-completion visibility / ROI display
+- [x] Bounty pay-on-completion visibility / ROI display
 
 ## 3. Hero Classes & Abilities (GDD Section 4)
 - [x] All 5 classes: Warrior, Archer, Mage, Rogue, Healer
@@ -192,27 +192,3 @@
 - [ ] Tutorial / onboarding (learn in 2 minutes per GDD)
 - [ ] iOS & Android builds (currently desktop Bevy app)
 
----
-
-## Summary
-
-| Category | Implemented | Pending | Total |
-|----------|------------|---------|-------|
-| Core Loop | 6 | 1 | 7 |
-| Indirect Control | 5 | 2 | 7 |
-| Hero Classes | 13 | 5 | 18 |
-| Buildings | 16 | 2 | 18 |
-| Roads | 4 | 1 | 5 |
-| Economy | 7 | 4 | 11 |
-| Enemies | 12 | 3 | 15 |
-| Day/Night | 8 | 2 | 10 |
-| UI | 8 | 7 | 15 |
-| Session Design | 2 | 4 | 6 |
-| Progression | 6 | 5 | 11 |
-| Art & Audio | 4 | 7 | 11 |
-| Monetization | 0 | 5 | 5 |
-| Emergent | 3 | 4 | 7 |
-| Other | 0 | 7 | 7 |
-| **TOTAL** | **~92** | **~61** | **~153** |
-
-**Approximate completion: ~59% of GDD features implemented**

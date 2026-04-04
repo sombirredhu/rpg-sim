@@ -1,0 +1,35 @@
+{
+  "Buildings": [
+    "TownHall",
+    "Inn",
+    "Market",
+    "Temple",
+    "GuardTower",
+    "WizardTower",
+    "Blacksmith",
+    "Alchemist",
+    "Barracks"
+  ],
+  "Building extras (optional, high value)": [
+    "damaged.png x9",
+    "ruined.png x9",
+    "construction_stage1.png x9",
+    "construction_stage2.png x9"
+  ],
+  "Heroes (still missing source sheets in NewAssets)": [
+    "Warrior full set + portraits",
+    "Archer full set + portraits",
+    "Mage full set + portraits",
+    "Rogue full set + portraits",
+    "Healer full set + portraits"
+  ],
+  "Enemies (still missing source sheets in NewAssets)": [
+    "Goblin full set",
+    "Bandit full set",
+    "Troll full set",
+    "GoblinElite full set",
+    "BossWarlord full set",
+    "Werewolf full set",
+    "ShadowBandit full set"
+  ]
+}

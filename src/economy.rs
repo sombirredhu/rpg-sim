@@ -55,6 +55,11 @@ pub fn bounty_payout_system(
         economy.gold += tax;
         economy.total_earned += tax;
 
+        // Track ROI stats on the bounty board
+        bounty_board.total_bounties_completed += 1;
+        bounty_board.total_bounty_gold_paid += reward;
+        bounty_board.total_bounty_tax_returned += tax;
+
         alerts.push(format!(
             "Bounty completed! Hero paid {:.0}g, treasury tax return +{:.0}g",
             reward * 0.9,

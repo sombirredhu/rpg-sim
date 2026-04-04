@@ -565,6 +565,9 @@ impl Default for GameEconomy {
 pub struct BountyBoard {
     pub bounties: Vec<Bounty>,
     pub next_id: u32,
+    pub total_bounties_completed: u32,
+    pub total_bounty_gold_paid: f32,
+    pub total_bounty_tax_returned: f32,
 }
 
 impl Default for BountyBoard {
@@ -572,6 +575,9 @@ impl Default for BountyBoard {
         Self {
             bounties: Vec::new(),
             next_id: 1,
+            total_bounties_completed: 0,
+            total_bounty_gold_paid: 0.0,
+            total_bounty_tax_returned: 0.0,
         }
     }
 }
@@ -928,6 +934,10 @@ impl GameAlerts {
 #[derive(Component)]
 pub struct Road;
 
+/// Marker for decoration sprites scattered on the map (rocks, bushes, ruins, etc.)
+#[derive(Component)]
+pub struct MapDecoration;
+
 /// Resource tracking road tile positions for speed lookups
 pub struct RoadNetwork {
     pub tiles: Vec<Vec2>,
@@ -1171,6 +1181,10 @@ pub struct SpriteAnimation {
     pub frame_timer: f32,
     pub frame_duration: f32,
     pub current_frame: usize,
+    /// Number of frames per directional row (for LPC-style sheets).
+    pub frames_per_row: usize,
+    /// Current direction row offset (0=up, 1=left, 2=down, 3=right).
+    pub row_offset: usize,
 }
 
 impl SpriteAnimation {
@@ -1180,8 +1194,49 @@ impl SpriteAnimation {
             frame_timer: 0.0,
             frame_duration: 1.0 / fps,
             current_frame: 0,
+            frames_per_row: frame_count,
+            row_offset: 2, // default facing down (toward camera)
         }
     }
+
+    /// Create a directional animation (LPC-style 4-row sprite sheet).
+    pub fn new_directional(frames_per_row: usize, fps: f32) -> Self {
+        Self {
+            frame_count: frames_per_row,
+            frame_timer: 0.0,
+            frame_duration: 1.0 / fps,
+            current_frame: 0,
+            frames_per_row,
+            row_offset: 2, // default facing down
+        }
+    }
+
+    /// Get the atlas index accounting for direction row.
+    pub fn atlas_index(&self) -> usize {
+        self.row_offset * self.frames_per_row + self.current_frame
+    }
+}
+
+/// Which animation mode an entity is currently playing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AnimMode {
+    Walk,
+    Attack,
+    Hurt,
+}
+
+/// Stores atlas handles for each animation mode so the sprite can be swapped at runtime.
+#[derive(Component)]
+pub struct AnimationSet {
+    pub walk_atlas: Handle<TextureAtlas>,
+    pub walk_frames: usize,
+    pub attack_atlas: Handle<TextureAtlas>,
+    pub attack_frames: usize,
+    pub hurt_atlas: Handle<TextureAtlas>,
+    pub hurt_frames: usize,
+    /// How many directional rows the hurt sheet has (1 for single-row, 4 for full).
+    pub hurt_rows: usize,
+    pub current_mode: AnimMode,
 }
 
 // ============================================================
