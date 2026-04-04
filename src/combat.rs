@@ -4,7 +4,7 @@ use crate::components::*;
 /// System: Heroes attack enemies they're targeting
 pub fn hero_attack_system(
     mut heroes: Query<(Entity, &Hero, &HeroStats, &HeroState, &mut AttackCooldown, &Transform)>,
-    mut enemies: Query<(&mut EnemyStats, &Transform), (With<Enemy>, Without<Hero>)>,
+    mut enemies: Query<(Entity, &mut EnemyStats, &Transform), (With<Enemy>, Without<Hero>)>,
     game_time: Res<GameTime>,
     time: Res<Time>,
 ) {
@@ -12,6 +12,15 @@ pub fn hero_attack_system(
     if dt == 0.0 {
         return;
     }
+
+    // Pre-collect enemy positions for Archer Volley AoE lookups
+    let enemy_positions: Vec<(Entity, Vec2, f32)> = enemies
+        .iter()
+        .map(|(e, stats, t)| (e, Vec2::new(t.translation.x, t.translation.y), stats.hp))
+        .collect();
+
+    // Collect deferred damage: (entity, damage) for AoE splash
+    let mut volley_splashes: Vec<(Entity, f32)> = Vec::new();
 
     for (_hero_entity, hero, stats, state, mut cooldown, hero_transform) in heroes.iter_mut() {
         cooldown.timer -= dt;
@@ -21,7 +30,7 @@ pub fn hero_attack_system(
                 continue;
             }
 
-            if let Ok((mut enemy_stats, enemy_transform)) = enemies.get_mut(*target_entity) {
+            if let Ok((_entity, mut enemy_stats, enemy_transform)) = enemies.get_mut(*target_entity) {
                 let hero_pos = Vec2::new(hero_transform.translation.x, hero_transform.translation.y);
                 let enemy_pos = Vec2::new(enemy_transform.translation.x, enemy_transform.translation.y);
                 let dist = (enemy_pos - hero_pos).length();
@@ -47,9 +56,20 @@ pub fn hero_attack_system(
                             damage *= 1.3;
                         }
                         HeroClass::Archer => {
-                            // Volley: bonus at range
+                            // Volley: AoE arrow rain on clustered enemies
+                            // Primary target gets full damage; nearby enemies take 50% splash
                             if dist > 80.0 {
                                 damage *= 1.2;
+                            }
+                            let splash_radius = 60.0;
+                            let splash_damage = (stats.attack * 0.5).max(1.0);
+                            for &(splash_entity, splash_pos, splash_hp) in &enemy_positions {
+                                if splash_entity == *target_entity || splash_hp <= 0.0 {
+                                    continue;
+                                }
+                                if (splash_pos - enemy_pos).length() <= splash_radius {
+                                    volley_splashes.push((splash_entity, splash_damage));
+                                }
                             }
                         }
                         _ => {}
@@ -60,6 +80,15 @@ pub fn hero_attack_system(
 
                     cooldown.timer = cooldown.interval;
                 }
+            }
+        }
+    }
+
+    // Apply Archer Volley AoE splash damage to clustered enemies
+    for (entity, splash_damage) in volley_splashes {
+        if let Ok((_e, mut enemy_stats, _t)) = enemies.get_mut(entity) {
+            if enemy_stats.hp > 0.0 {
+                enemy_stats.hp -= splash_damage;
             }
         }
     }
