@@ -21,7 +21,7 @@
 - [x] Auto-bounty creation for monster dens
 - [x] Manual bounty placement (Q key)
 - [ ] Bounty Board UI panel (currently keyboard-only, no visual list)
-- [ ] Dynamic bounty amount adjustment UI
+- [x] Dynamic bounty amount adjustment UI
 - [ ] Bounty pay-on-completion visibility / ROI display
 
 ## 3. Hero Classes & Abilities (GDD Section 4)
@@ -199,7 +199,7 @@
 | Category | Implemented | Pending | Total |
 |----------|------------|---------|-------|
 | Core Loop | 6 | 1 | 7 |
-| Indirect Control | 4 | 3 | 7 |
+| Indirect Control | 5 | 2 | 7 |
 | Hero Classes | 12 | 6 | 18 |
 | Buildings | 14 | 4 | 18 |
 | Roads | 4 | 1 | 5 |
@@ -213,6 +213,6 @@
 | Monetization | 0 | 5 | 5 |
 | Emergent | 3 | 4 | 7 |
 | Other | 0 | 7 | 7 |
-| **TOTAL** | **~89** | **~64** | **~153** |
+| **TOTAL** | **~90** | **~63** | **~153** |
 
-**Approximate completion: ~58% of GDD features implemented**
+**Approximate completion: ~59% of GDD features implemented**

@@ -220,7 +220,7 @@ pub fn setup_ui(
             .with_children(|bar| {
                 bar.spawn_bundle(TextBundle {
                     text: Text::with_section(
-                        "WASD:Move | Scroll:Zoom | B:Build | U:Upgrade | 1/2/3:Speed | Space:Pause | Q:Bounty",
+                        "WASD:Move | Scroll:Zoom | B:Build | U:Upgrade | 1/2/3:Speed | Space:Pause | Q:Bounty | Up/Down:Amount",
                         TextStyle {
                             font: font.clone(),
                             font_size: 13.0,
@@ -395,6 +395,7 @@ pub fn update_alerts_ui(
 pub fn update_bounty_board_ui(
     game_phase: Res<GamePhase>,
     bounty_board: Res<BountyBoard>,
+    economy: Res<GameEconomy>,
     mut panel_query: Query<&mut Visibility, With<BountyBoardUi>>,
     mut text_query: Query<&mut Text, With<BountyBoardText>>,
 ) {
@@ -447,7 +448,16 @@ pub fn update_bounty_board_ui(
         "\nTotal: {} | Avail: {} | Active: {}\n",
         active.len(), available_count, in_progress_count
     ));
-    info.push_str("Click map to place (30g)");
+
+    // Show adjustable bounty amount with affordability
+    let amount = game_phase.manual_bounty_amount;
+    let can_afford = if economy.gold >= amount { "OK" } else { "!!" };
+    info.push_str(&format!(
+        "\n--- Place Bounty: {:.0}g [{}] ---\n",
+        amount, can_afford
+    ));
+    info.push_str("Up/Down: +/-10g | Shift: +/-50g\n");
+    info.push_str("Click map to place");
 
     for mut text in text_query.iter_mut() {
         text.sections[0].value = info.clone();
@@ -509,9 +519,30 @@ pub fn build_menu_system(
     if keyboard.just_pressed(KeyCode::Q) {
         game_phase.bounty_board_open = !game_phase.bounty_board_open;
         if game_phase.bounty_board_open {
-            alerts.push("Bounty Board open - Click on map to place bounty".to_string());
+            alerts.push(format!(
+                "Bounty Board open - Up/Down to adjust amount ({:.0}g) - Click to place",
+                game_phase.manual_bounty_amount
+            ));
         } else {
             alerts.push("Bounty Board closed".to_string());
+        }
+    }
+
+    // Adjust bounty amount with Up/Down arrows when bounty board is open
+    if game_phase.bounty_board_open {
+        let step = if keyboard.pressed(KeyCode::LShift) || keyboard.pressed(KeyCode::RShift) {
+            50.0
+        } else {
+            10.0
+        };
+
+        if keyboard.just_pressed(KeyCode::Up) {
+            game_phase.manual_bounty_amount = (game_phase.manual_bounty_amount + step).min(500.0);
+            alerts.push(format!("Bounty amount: {:.0}g", game_phase.manual_bounty_amount));
+        }
+        if keyboard.just_pressed(KeyCode::Down) {
+            game_phase.manual_bounty_amount = (game_phase.manual_bounty_amount - step).max(10.0);
+            alerts.push(format!("Bounty amount: {:.0}g", game_phase.manual_bounty_amount));
         }
     }
 }
@@ -546,17 +577,19 @@ pub fn manual_bounty_system(
             let world_pos = camera_transform.translation.truncate()
                 + ndc * Vec2::new(window_size.x, window_size.y) * 0.3;
 
-            let bounty_cost = 30.0;
+            let bounty_cost = game_phase.manual_bounty_amount;
             if economy.gold >= bounty_cost {
                 economy.gold -= bounty_cost;
                 economy.total_spent += bounty_cost;
 
+                // Scale danger estimate based on bounty amount
+                let danger = ((bounty_cost / 50.0) as u32).clamp(1, 5);
                 bounty_board.add_bounty(
                     BountyType::Exploration,
                     bounty_cost,
                     world_pos,
                     None,
-                    1,
+                    danger,
                 );
 
                 alerts.push(format!("Bounty placed at ({:.0}, {:.0}) for {:.0} gold!", world_pos.x, world_pos.y, bounty_cost));
