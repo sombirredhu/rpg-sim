@@ -872,6 +872,7 @@ pub struct GamePhase {
     pub selected_building: Option<BuildingType>,
     pub bounty_board_open: bool,
     pub show_build_menu: bool,
+    pub manual_bounty_amount: f32,
 }
 
 impl Default for GamePhase {
@@ -881,6 +882,7 @@ impl Default for GamePhase {
             selected_building: None,
             bounty_board_open: false,
             show_build_menu: false,
+            manual_bounty_amount: 30.0,
         }
     }
 }

@@ -398,6 +398,7 @@ pub fn update_bounty_board_ui(
     bounty_board: Res<BountyBoard>,
     mut panel_query: Query<&mut Visibility, (With<BountyBoardUi>, Without<BountyBoardText>)>,
     mut text_visibility_query: Query<&mut Visibility, (With<BountyBoardText>, Without<BountyBoardUi>)>,
+    economy: Res<GameEconomy>,
     mut text_query: Query<&mut Text, With<BountyBoardText>>,
 ) {
     // Toggle panel visibility
@@ -455,7 +456,16 @@ pub fn update_bounty_board_ui(
         "\nTotal: {} | Avail: {} | Active: {}\n",
         active.len(), available_count, in_progress_count
     ));
-    info.push_str("Click map to place (30g)");
+
+    // Show adjustable bounty amount with affordability
+    let amount = game_phase.manual_bounty_amount;
+    let can_afford = if economy.gold >= amount { "OK" } else { "!!" };
+    info.push_str(&format!(
+        "\n--- Place Bounty: {:.0}g [{}] ---\n",
+        amount, can_afford
+    ));
+    info.push_str("Up/Down: +/-10g | Shift: +/-50g\n");
+    info.push_str("Click map to place");
 
     for mut text in text_query.iter_mut() {
         text.sections[0].value = info.clone();
@@ -530,9 +540,30 @@ pub fn build_menu_system(
             game_phase.build_mode = false;
             game_phase.show_build_menu = false;
             game_phase.selected_building = None;
-            alerts.push("Bounty Board open - Click on map to place bounty".to_string());
+            alerts.push(format!(
+                "Bounty Board open - Up/Down to adjust amount ({:.0}g) - Click to place",
+                game_phase.manual_bounty_amount
+            ));
         } else {
             alerts.push("Bounty Board closed".to_string());
+        }
+    }
+
+    // Adjust bounty amount with Up/Down arrows when bounty board is open
+    if game_phase.bounty_board_open {
+        let step = if keyboard.pressed(KeyCode::LShift) || keyboard.pressed(KeyCode::RShift) {
+            50.0
+        } else {
+            10.0
+        };
+
+        if keyboard.just_pressed(KeyCode::Up) {
+            game_phase.manual_bounty_amount = (game_phase.manual_bounty_amount + step).min(500.0);
+            alerts.push(format!("Bounty amount: {:.0}g", game_phase.manual_bounty_amount));
+        }
+        if keyboard.just_pressed(KeyCode::Down) {
+            game_phase.manual_bounty_amount = (game_phase.manual_bounty_amount - step).max(10.0);
+            alerts.push(format!("Bounty amount: {:.0}g", game_phase.manual_bounty_amount));
         }
     }
 }
@@ -543,6 +574,7 @@ pub fn manual_bounty_system(
     windows: Res<Windows>,
     camera: Query<(&Camera, &Transform, &OrthographicProjection), With<MainCamera>>,
     game_phase: Res<GamePhase>,
+    mut economy: ResMut<GameEconomy>,
     mut bounty_board: ResMut<BountyBoard>,
     mut alerts: ResMut<GameAlerts>,
 ) {
@@ -561,19 +593,25 @@ pub fn manual_bounty_system(
                 None => return,
             };
 
-            let reward = 30.0;
-            bounty_board.add_bounty(
-                BountyType::Exploration,
-                reward,
-                world_pos,
-                None,
-                1,
-            );
+            let bounty_cost = game_phase.manual_bounty_amount;
+            if economy.gold >= bounty_cost {
+                economy.gold -= bounty_cost;
+                economy.total_spent += bounty_cost;
 
-            alerts.push(format!(
-                "Exploration bounty posted at ({:.0}, {:.0}) for {:.0} gold reward",
-                world_pos.x, world_pos.y, reward
-            ));
+                // Scale danger estimate based on bounty amount
+                let danger = ((bounty_cost / 50.0) as u32).clamp(1, 5);
+                bounty_board.add_bounty(
+                    BountyType::Exploration,
+                    bounty_cost,
+                    world_pos,
+                    None,
+                    danger,
+                );
+
+                alerts.push(format!("Bounty placed at ({:.0}, {:.0}) for {:.0} gold!", world_pos.x, world_pos.y, bounty_cost));
+            } else {
+                alerts.push("Not enough gold for bounty!".to_string());
+            }
         }
     }
 }
