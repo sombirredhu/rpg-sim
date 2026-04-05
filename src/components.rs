@@ -900,6 +900,9 @@ pub struct DayNightText;
 pub struct HeroPanelText;
 
 #[derive(Component)]
+pub struct HeroPanelUi;
+
+#[derive(Component)]
 pub struct KingdomRankText;
 
 #[derive(Component)]
@@ -970,6 +973,7 @@ pub struct GamePhase {
     pub manual_bounty_amount: f32,
     pub road_tool_active: bool,
     pub game_started: bool, // True after main menu Start/Resume is clicked
+    pub hero_panel_open: bool,
 }
 
 impl Default for GamePhase {
@@ -982,6 +986,7 @@ impl Default for GamePhase {
             manual_bounty_amount: 30.0,
             road_tool_active: false,
             game_started: false,
+            hero_panel_open: true,
         }
     }
 }
