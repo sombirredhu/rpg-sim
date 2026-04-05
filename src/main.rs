@@ -19,6 +19,7 @@ mod ui;
 mod camera;
 mod features;
 mod mouse;
+mod menu;
 
 use bevy::prelude::*;
 use components::*;
@@ -52,6 +53,7 @@ fn main() {
         .insert_resource(InspectTarget::default())
         .insert_resource(components::SelectedBuilding::default())
         .insert_resource(ClearColor(Color::rgb(0.18, 0.32, 0.15)))
+        .insert_resource(menu::MenuState::default())
         // Events
         .add_event::<BountyCompletedEvent>()
         .add_event::<HeroDeathEvent>()
@@ -60,7 +62,10 @@ fn main() {
         .add_event::<ThreatEscalationEvent>()
         .add_event::<HeroSpawnEvent>()
         .add_event::<audio::SfxEvent>()
-        // Startup systems (sprite loading MUST run first)
+        // Startup systems
+        // Menu setup (runs first, before game world)
+        .add_startup_system(menu::setup_main_menu)
+        // Asset loading and world spawn (runs for both menu + game)
         .add_startup_system(sprites::load_sprite_assets)
         .add_startup_system(audio::setup_audio)
         .add_startup_system(setup_camera)
@@ -77,7 +82,14 @@ fn main() {
         .add_startup_system_to_stage(StartupStage::PostStartup, features::spawn_resource_nodes)
         .add_startup_system_to_stage(StartupStage::PostStartup, features::spawn_fog_of_war)
         // Game logic systems
-        // Mouse interaction systems
+        // Menu systems
+        .add_system(menu::menu_button_hover_system)
+        .add_system(menu::start_game_button_system)
+        .add_system(menu::resume_game_button_system)
+        .add_system(menu::settings_button_system)
+        .add_system(menu::back_button_system)
+        .add_system(menu::quit_button_system)
+        // Mouse interaction systems (only after game started)
         .add_system(mouse::camera_drag_system)
         .add_system(mouse::speed_button_click)
         .add_system(mouse::pause_button_click)

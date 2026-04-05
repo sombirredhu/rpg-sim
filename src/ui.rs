@@ -14,7 +14,7 @@ pub fn setup_ui(
     // UI Camera
     commands.spawn_bundle(UiCameraBundle::default());
 
-    // Root UI node
+    // Root UI node — the in-game HUD
     commands
         .spawn_bundle(NodeBundle {
             style: Style {
@@ -23,8 +23,10 @@ pub fn setup_ui(
                 ..Default::default()
             },
             color: UiColor(Color::NONE),
+            visibility: Visibility { is_visible: false },
             ..Default::default()
         })
+        .insert(GameUiRoot)
         .with_children(|parent| {
             // ===== TOP BAR =====
             parent.spawn_bundle(NodeBundle {

@@ -6,6 +6,10 @@ use bevy::prelude::*;
 // UI INTERACTION COMPONENTS — Marker components for mouse interaction
 // ============================================================
 
+/// Root node of the in-game HUD (hidden until game starts from main menu)
+#[derive(Component)]
+pub struct GameUiRoot;
+
 /// Attached to the Speed display button in the HUD
 #[derive(Component)]
 pub struct SpeedButton;
@@ -957,6 +961,7 @@ pub struct GamePhase {
     pub show_build_menu: bool,
     pub manual_bounty_amount: f32,
     pub road_tool_active: bool,
+    pub game_started: bool, // True after main menu Start/Resume is clicked
 }
 
 impl Default for GamePhase {
@@ -968,6 +973,7 @@ impl Default for GamePhase {
             show_build_menu: false,
             manual_bounty_amount: 30.0,
             road_tool_active: false,
+            game_started: false,
         }
     }
 }

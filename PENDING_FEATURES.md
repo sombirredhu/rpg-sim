@@ -165,7 +165,12 @@
 - [ ] Class-specific footstep and combat sound effects
 - [ ] Town ambience (merchants calling, blacksmith hammering, temple bells)
 - [ ] Boss raid siren horn effect
-- [ ] Any audio at all
+- [x] Main menu screen with Start New Game, Resume Game, Settings, and Quit buttons
+- [x] Settings sub-menu with toggleable options
+- [ ] Save/Load functionality for resume game
+- [ ] Settings with actual sliders/toggles (SFX volume, music volume, camera speed)
+- [x] Hide in-game HUD until game is started from menu
+- [ ] Pause game logic while main menu is active (time, enemies, economy)
 
 ## 12. Monetization (GDD Section 12)
 - [ ] Cosmetic hero skins
