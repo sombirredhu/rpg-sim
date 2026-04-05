@@ -94,7 +94,9 @@ pub fn auto_bounty_system(
     mut bounty_board: ResMut<BountyBoard>,
     dens: Query<(Entity, &MonsterDen, &Transform)>,
     game_time: Res<GameTime>,
+    game_phase: Res<GamePhase>,
 ) {
+    if !game_phase.game_started { return; }
     for (entity, den, transform) in dens.iter() {
         let pos = Vec2::new(transform.translation.x, transform.translation.y);
 
@@ -122,8 +124,10 @@ pub fn kingdom_progression_system(
     mut kingdom: ResMut<KingdomState>,
     buildings: Query<&Building>,
     heroes: Query<&Hero>,
+    game_phase: Res<GamePhase>,
     mut alerts: ResMut<GameAlerts>,
 ) {
+    if !game_phase.game_started { return; }
     let building_count = buildings.iter().filter(|b| !b.is_destroyed).count() as u32;
     let hero_count = heroes.iter().count() as u32;
     kingdom.buildings_count = building_count;

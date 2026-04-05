@@ -18,7 +18,7 @@ pub fn camera_drag_system(
     mut camera: Query<(&mut Transform, &mut OrthographicProjection), With<MainCamera>>,
     game_phase: Res<GamePhase>,
 ) {
-    if game_phase.build_mode || game_phase.show_build_menu || game_phase.bounty_board_open {
+    if !game_phase.game_started || game_phase.build_mode || game_phase.show_build_menu || game_phase.bounty_board_open {
         for _ in mouse_motion.iter() {}
         return;
     }
@@ -43,8 +43,10 @@ pub fn camera_drag_system(
 pub fn speed_button_click(
     speed_btn: Query<&Interaction, With<SpeedButton>>,
     mut game_time: ResMut<GameTime>,
+    game_phase: Res<GamePhase>,
     mut alerts: ResMut<GameAlerts>,
 ) {
+    if !game_phase.game_started { return; }
     for interaction in speed_btn.iter() {
         if matches!(interaction, Interaction::Clicked) {
             game_time.speed_multiplier = match game_time.speed_multiplier as u32 {
@@ -61,8 +63,10 @@ pub fn speed_button_click(
 pub fn pause_button_click(
     pause_btn: Query<&Interaction, With<PauseButton>>,
     mut game_time: ResMut<GameTime>,
+    game_phase: Res<GamePhase>,
     mut alerts: ResMut<GameAlerts>,
 ) {
+    if !game_phase.game_started { return; }
     for interaction in pause_btn.iter() {
         if matches!(interaction, Interaction::Clicked) {
             game_time.is_paused = !game_time.is_paused;
@@ -81,6 +85,7 @@ pub fn build_button_click(
     kingdom: Res<KingdomState>,
     mut alerts: ResMut<GameAlerts>,
 ) {
+    if !game_phase.game_started { return; }
     for interaction in build_btn.iter() {
         if matches!(interaction, Interaction::Clicked) {
             if game_phase.build_mode {
@@ -112,6 +117,7 @@ pub fn bounty_button_click(
     mut game_phase: ResMut<GamePhase>,
     mut alerts: ResMut<GameAlerts>,
 ) {
+    if !game_phase.game_started { return; }
     for interaction in bounty_btn.iter() {
         if matches!(interaction, Interaction::Clicked) {
             game_phase.bounty_board_open = !game_phase.bounty_board_open;
@@ -142,6 +148,7 @@ pub fn expand_button_click(
     _sprites: Res<SpriteAssets>,
     fog_tiles: Query<(Entity, &Transform), With<FogTile>>,
 ) {
+    if !game_phase.game_started { return; }
     for interaction in expand_btn.iter() {
         if matches!(interaction, Interaction::Clicked) {
             if game_phase.build_mode || game_phase.bounty_board_open {
@@ -217,6 +224,7 @@ pub fn road_tool_button_click(
     mut game_phase: ResMut<GamePhase>,
     mut alerts: ResMut<GameAlerts>,
 ) {
+    if !game_phase.game_started { return; }
     for interaction in road_btn.iter() {
         if matches!(interaction, Interaction::Clicked) {
             if game_phase.build_mode || game_phase.show_build_menu || game_phase.bounty_board_open {
@@ -251,6 +259,10 @@ pub fn map_click_system(
     _economy: ResMut<GameEconomy>,
 ) {
     if !mouse_input.just_pressed(MouseButton::Left) {
+        return;
+    }
+
+    if !game_phase.game_started {
         return;
     }
 
@@ -383,7 +395,7 @@ pub fn selected_building_action(
     mut alerts: ResMut<GameAlerts>,
     game_phase: Res<GamePhase>,
 ) {
-    if !mouse_input.just_pressed(MouseButton::Left) || game_phase.build_mode {
+    if !game_phase.game_started || !mouse_input.just_pressed(MouseButton::Left) || game_phase.build_mode {
         return;
     }
 

@@ -578,10 +578,10 @@ pub fn update_hero_panel_ui(
             HeroState::Dead { .. } => "Dead",
             HeroState::Casting { .. } => "Casting",
         };
-        let legendary = if hero.is_legendary { "*" } else { "" };
+        let legendary_prefix = if hero.is_legendary { "[LEG] " } else { "" };
         info.push_str(&format!(
             "  {}{}Lv{} HP:{:.0}/{:.0} [{}]\n",
-            legendary,
+            legendary_prefix,
             hero.class.display_name(),
             hero.level,
             stats.hp,

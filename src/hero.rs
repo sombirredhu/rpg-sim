@@ -195,7 +195,33 @@ pub fn hero_ai_system(
             }
         }
 
-        // Priority 4: Attack nearby enemies
+        // Priority 4: Shopping - idle heroes with surplus gold visit the market
+        if matches!(&*state, HeroState::Shopping) {
+            // Shopping heroes will leave via hero_rest_system (shared handling)
+            continue;
+        }
+
+        if matches!(&*state, HeroState::Idle) && hero.gold_carried >= 20.0 {
+            if let Some((_, market_transform, _)) = buildings.iter()
+                .filter(|(_, _, b)| b.building_type == BuildingType::Market && !b.is_destroyed)
+                .min_by(|(_, ta, _), (_, tb, _)| {
+                    let da = (Vec2::new(ta.translation.x, ta.translation.y) - hero_pos).length();
+                    let db = (Vec2::new(tb.translation.x, tb.translation.y) - hero_pos).length();
+                    da.partial_cmp(&db).unwrap()
+                })
+            {
+                let market_pos = Vec2::new(market_transform.translation.x, market_transform.translation.y);
+                let dist = (market_pos - hero_pos).length();
+                if dist < 30.0 {
+                    *state = HeroState::Shopping;
+                } else {
+                    *state = HeroState::MovingTo { target: market_pos };
+                }
+                continue;
+            }
+        }
+
+        // Priority 5: Attack nearby enemies
         if let Some((enemy_entity, _, _)) = enemies.iter()
             .filter(|(_, et, es)| {
                 let dist = (Vec2::new(et.translation.x, et.translation.y) - hero_pos).length();
@@ -299,8 +325,8 @@ pub fn hero_movement_system(
                     *state = HeroState::Idle;
                 }
             }
-            HeroState::Resting => {
-                // Stay still while resting
+            HeroState::Resting | HeroState::Shopping => {
+                // Stay still while resting or shopping
             }
             HeroState::Casting { .. } => {
                 // Stay still while channeling
@@ -400,7 +426,7 @@ pub fn bounty_resolution_system(
     }
 }
 
-/// System: Hero resting at inn restores HP and morale
+/// System: Hero resting at inn restores HP and morale; heroes shopping at market spend gold for morale
 pub fn hero_rest_system(
     mut heroes: Query<(&mut Hero, &mut HeroStats, &mut HeroState)>,
     bonuses: Res<BuildingBonuses>,
@@ -423,6 +449,19 @@ pub fn hero_rest_system(
 
             // Stop resting when fully healed
             if stats.hp >= stats.max_hp * 0.9 && hero.morale >= 70.0 {
+                *state = HeroState::Idle;
+            }
+        } else if let HeroState::Shopping = *state {
+            // Heroes spend ~10 gold at the market in exchange for a morale boost
+            let spend = 10.0 * dt * bonuses.market_trade_bonus;
+            let spent = spend.min(hero.gold_carried);
+            hero.gold_carried -= spent;
+
+            // Shopping boosts morale quickly
+            hero.morale = (hero.morale + 6.0 * dt).min(100.0);
+
+            // Leave the market after a short visit (3 seconds) or when out of gold
+            if hero.gold_carried < 5.0 {
                 *state = HeroState::Idle;
             }
         }
@@ -496,10 +535,12 @@ pub fn hero_attraction_system(
     bonuses: Res<BuildingBonuses>,
     sprites: Res<SpriteAssets>,
     game_time: Res<GameTime>,
+    game_phase: Res<GamePhase>,
     time: Res<Time>,
     mut spawn_timer: Local<f32>,
     mut alerts: ResMut<GameAlerts>,
 ) {
+    if !game_phase.game_started { return; }
     let dt = time.delta_seconds() * game_time.speed_multiplier;
     *spawn_timer -= dt;
     if *spawn_timer > 0.0 {
@@ -567,6 +608,60 @@ pub fn hero_morale_system(
         // Resting restores morale
         if matches!(state, HeroState::Resting) {
             hero.morale = (hero.morale + 5.0 * dt).min(100.0);
+        }
+    }
+}
+
+/// System: Spawn and sync golden glow sprites for legendary heroes
+pub fn legendary_hero_glow_system(
+    mut commands: Commands,
+    heroes: Query<(Entity, &Hero, &Transform), Without<LegendaryGlow>>,
+    mut glows: Query<(Entity, &LegendaryGlow, &mut Sprite, &mut Transform)>,
+    time: Res<Time>,
+) {
+    let pulse = ((time.seconds_since_startup() as f32) * 2.0).sin() * 0.05 + 0.35;
+
+    // Spawn glow for newly legendary heroes
+    for (hero_entity, hero, hero_t) in heroes.iter() {
+        if !hero.is_legendary {
+            continue;
+        }
+        let already_has = glows
+            .iter()
+            .any(|(_, glow, _, _)| glow.parent_hero == hero_entity);
+        if already_has {
+            continue;
+        }
+        commands.spawn_bundle(SpriteBundle {
+            sprite: Sprite {
+                color: Color::rgba(1.0, 0.84, 0.0, pulse),
+                custom_size: Some(Vec2::new(70.0, 70.0)),
+                ..Default::default()
+            },
+            transform: Transform::from_translation(Vec3::new(
+                hero_t.translation.x,
+                hero_t.translation.y,
+                8.5,
+            )),
+            ..Default::default()
+        })
+        .insert(LegendaryGlow {
+            parent_hero: hero_entity,
+        });
+    }
+
+    // Update glow position + pulse; despawn if hero no longer legendary
+    for (glow_entity, glow, mut sprite, mut glow_t) in glows.iter_mut() {
+        if let Ok((_, hero, hero_t)) = heroes.get(glow.parent_hero) {
+            if hero.is_legendary {
+                glow_t.translation.x = hero_t.translation.x;
+                glow_t.translation.y = hero_t.translation.y;
+                sprite.color = Color::rgba(1.0, 0.84, 0.0, pulse);
+            } else {
+                commands.entity(glow_entity).despawn();
+            }
+        } else {
+            commands.entity(glow_entity).despawn();
         }
     }
 }

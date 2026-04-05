@@ -92,6 +92,7 @@ fn main() {
         .add_startup_system_to_stage(StartupStage::PostStartup, debug::setup_debug_console)
         // Game logic systems
         // Menu systems
+        .add_system(menu::menu_pause_system)
         .add_system(menu::menu_button_hover_system)
         .add_system(menu::start_game_button_system)
         .add_system(menu::resume_game_button_system)
@@ -124,6 +125,7 @@ fn main() {
         .add_system(hero::hero_progression_system)
         .add_system(hero::hero_attraction_system)
         .add_system(hero::hero_morale_system)
+        .add_system(hero::legendary_hero_glow_system)
         .add_system(enemy::monster_den_spawn_system)
         .add_system(enemy::enemy_ai_system)
         .add_system(enemy::threat_escalation_system)

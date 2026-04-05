@@ -83,7 +83,7 @@
 - [x] Emergency repair costs
 - [ ] Signing bonus for high-tier hero recruitment
 - [ ] Manual repair trigger UI (currently auto-repair only)
-- [ ] Treasury reserve warning (below 200 gold alert)
+- [x] Treasury reserve warning (below 200 gold alert)
 - [ ] Income-per-minute breakdown UI
 
 ## 6. Enemies & Threat System (GDD Section 7)
@@ -112,7 +112,7 @@
 - [x] Low morale heroes refuse to leave inn at night
 - [x] Torch/light defense bonus near buildings at night
 - [x] Merchant caravans only during daytime
-- [ ] Torch halo visual effects around buildings at night
+- [x] Torch halo visual effects around buildings at night
 - [ ] Proper day/night lighting with real-time colour overlay
 
 ## 8. User Interface (GDD Section 9)
@@ -160,7 +160,7 @@
 - [x] Basic sprite animation system
 - [ ] Hero walk, attack, idle, rest animation sets (currently basic frame cycling)
 - [ ] Animated building interiors (flickering fires, moving silhouettes)
-- [ ] Golden border on Legendary hero portraits
+- [x] Golden border on Legendary hero portraits
 - [ ] Adaptive music (calm lute during day, tense strings at night)
 - [ ] Class-specific footstep and combat sound effects
 - [ ] Town ambience (merchants calling, blacksmith hammering, temple bells)
@@ -170,7 +170,7 @@
 - [x] Save/Load functionality for resume game
 - [ ] Settings with actual sliders/toggles (SFX volume, music volume, camera speed)
 - [x] Hide in-game HUD until game is started from menu
-- [ ] Pause game logic while main menu is active (time, enemies, economy)
+- [x] Pause game logic while main menu is active (time, enemies, economy)
 
 ## 12. Monetization (GDD Section 12)
 - [ ] Cosmetic hero skins
@@ -190,7 +190,7 @@
 
 ## 14. Other Missing Features
 - [ ] Guild system (assign heroes to guilds or leave free-roaming)
-- [ ] Hero Shopping state (exists in code but unused - heroes visit market)
+- [x] Hero Shopping state (heroes with surplus gold visit market, spend gold for morale boost)
 - [ ] Escort merchant bounties (Objective bounty subtype)
 - [ ] Map grid-based building placement (currently free placement)
 - [x] Building placement validation (overlap detection)

@@ -892,63 +892,89 @@ pub fn torch_defense_system(
     mut commands: Commands,
     buildings: Query<(Entity, &Building, &Transform)>,
     mut heroes: Query<(Entity, &mut HeroStats, &Transform), With<Hero>>,
-    mut torch_halos: Query<(Entity, &mut TorchHalo)>,
+    mut torch_halos: Query<(Entity, &mut TorchHalo, &mut Sprite)>,
     game_time: Res<GameTime>,
     mut buffed_heroes: Local<HashSet<Entity>>,
-    mut tracked_buildings: Local<HashSet<Entity>>,
     time: Res<Time>,
 ) {
     const TORCH_DEFENSE_BONUS: f32 = 3.0;
     const TORCH_RADIUS: f32 = 80.0;
 
-    if game_time.is_night() {
-        // Spawn torch halos for non-destroyed buildings
-        for (building_entity, building, transform) in buildings.iter() {
-            if building.is_destroyed || tracked_buildings.contains(&building_entity) {
-                continue;
-            }
-            let bpos = Vec2::new(transform.translation.x, transform.translation.y);
-            commands.spawn_bundle(SpriteBundle {
-                sprite: Sprite {
-                    color: Color::rgba(1.0, 0.6, 0.2, 0.15),
-                    custom_size: Some(Vec2::new(TORCH_RADIUS * 2.0, TORCH_RADIUS * 2.0)),
-                    ..Default::default()
-                },
-                transform: Transform::from_translation(Vec3::new(bpos.x, bpos.y, 2.0)),
+    // Target alpha based on time of day for smooth fade transitions
+    let target_alpha = match game_time.time_of_day {
+        TimeOfDay::Day => 0.0,
+        TimeOfDay::Dawn => 0.05,
+        TimeOfDay::Dusk => 0.10,
+        TimeOfDay::Night => 0.15,
+    };
+
+    // Ensure every non-destroyed building has a torch halo child
+    let existing_parents: HashSet<Entity> =
+        torch_halos.iter().map(|(_, h, _)| h.parent_building).collect();
+
+    // Spawn halos for buildings that don't have one yet
+    for (building_entity, building, transform) in buildings.iter() {
+        if building.is_destroyed || existing_parents.contains(&building_entity) {
+            continue;
+        }
+        let bpos = Vec2::new(transform.translation.x, transform.translation.y);
+        commands.spawn_bundle(SpriteBundle {
+            sprite: Sprite {
+                color: Color::rgba(1.0, 0.7, 0.3, 0.0),
+                custom_size: Some(Vec2::new(TORCH_RADIUS * 2.0, TORCH_RADIUS * 2.0)),
                 ..Default::default()
-            })
-            .insert(TorchHalo {
-                parent_building: building_entity,
-                pulse_timer: rand::random::<f32>() * std::f32::consts::TAU,
-            });
-            tracked_buildings.insert(building_entity);
-        }
+            },
+            transform: Transform::from_translation(Vec3::new(bpos.x, bpos.y, 2.0)),
+            ..Default::default()
+        })
+        .insert(TorchHalo {
+            parent_building: building_entity,
+            pulse_timer: rand::random::<f32>() * std::f32::consts::TAU,
+            target_alpha,
+        });
+    }
 
-        // Remove torch halos for destroyed buildings
-        let dead_parents: Vec<Entity> = torch_halos
-            .iter()
-            .filter(|(_, halo)| {
-                buildings.get(halo.parent_building)
-                    .map(|(_, b, _)| b.is_destroyed)
-                    .unwrap_or(true)
-            })
-            .map(|(e, _)| e)
-            .collect();
-        for e in dead_parents {
-            commands.entity(e).despawn();
-        }
+    // Despawn halos for destroyed buildings
+    let dead_parents: Vec<Entity> = torch_halos
+        .iter()
+        .filter(|(_, halo, _)| {
+            buildings
+                .get(halo.parent_building)
+                .map(|(_, b, _)| b.is_destroyed)
+                .unwrap_or(true)
+        })
+        .map(|(e, _, _)| e)
+        .collect();
+    for e in dead_parents {
+        commands.entity(e).despawn();
+    }
 
-        // Pulse remaining torch halos
-        for (_, mut halo) in torch_halos.iter_mut() {
-            halo.pulse_timer += time.delta_seconds();
-        }
+    // Update torch halo visuals: smooth fade + pulse
+    for (_, mut halo, mut sprite) in torch_halos.iter_mut() {
+        halo.pulse_timer += time.delta_seconds();
+        halo.target_alpha = target_alpha;
 
-        // Defense bonus logic
+        let pulse = (halo.pulse_timer * 1.5).sin() * 0.015;
+        let current = sprite.color.a();
+        let new_color = if halo.target_alpha > 0.0 {
+            let target_with_pulse = (halo.target_alpha + pulse).max(0.0);
+            current + (target_with_pulse - current) * (10.0 * time.delta_seconds()).min(1.0)
+        } else {
+            current + (0.0 - current) * (10.0 * time.delta_seconds()).min(1.0)
+        };
+
+        sprite.color = Color::rgba(1.0, 0.7, 0.3, new_color);
+    }
+
+    // Defense bonus for heroes near buildings at night
+    if game_time.is_night() {
         for (entity, mut stats, hero_t) in heroes.iter_mut() {
             let hpos = Vec2::new(hero_t.translation.x, hero_t.translation.y);
             let near_building = buildings.iter().any(|(_, building, transform)| {
                 !building.is_destroyed
-                    && (Vec2::new(transform.translation.x, transform.translation.y) - hpos).length() < 100.0
+                    && (Vec2::new(transform.translation.x, transform.translation.y) - hpos)
+                        .length()
+                        < 100.0
             });
 
             if near_building {
@@ -960,13 +986,7 @@ pub fn torch_defense_system(
             }
         }
     } else {
-        // Daytime: clear all torch halos
-        let halos: Vec<Entity> = torch_halos.iter().map(|(e, _)| e).collect();
-        for e in halos {
-            commands.entity(e).despawn();
-        }
-        tracked_buildings.clear();
-
+        // Remove defense bonus during day
         for (entity, mut stats, _) in heroes.iter_mut() {
             if buffed_heroes.remove(&entity) {
                 stats.defense -= TORCH_DEFENSE_BONUS;

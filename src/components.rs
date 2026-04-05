@@ -723,8 +723,8 @@ impl Default for GameTime {
             current_day: 1,
             time_of_day: TimeOfDay::Dawn,
             day_progress: 0.0,
-            speed_multiplier: 1.0,
-            is_paused: false,
+            speed_multiplier: 0.0,
+            is_paused: true,
         }
     }
 }
@@ -1338,6 +1338,13 @@ pub struct AnimationSet {
 pub struct TorchHalo {
     pub parent_building: Entity,
     pub pulse_timer: f32,
+    pub target_alpha: f32,
+}
+
+/// Golden glow sprite attached to legendary heroes
+#[derive(Component)]
+pub struct LegendaryGlow {
+    pub parent_hero: Entity,
 }
 
 // ============================================================

@@ -316,6 +316,7 @@ pub fn start_game_button_system(
     mut menu_state: ResMut<MenuState>,
     mut main_menu_visibility: Query<&mut Visibility, With<MainMenuRoot>>,
     mut game_phase: ResMut<GamePhase>,
+    mut game_time: ResMut<GameTime>,
     mut game_ui_query: Query<&mut Visibility, (With<GameUiRoot>, Without<MainMenuRoot>, Without<SettingsMenuRoot>)>,
 ) {
     for interaction in interaction_query.iter_mut() {
@@ -329,6 +330,8 @@ pub fn start_game_button_system(
                 vis.is_visible = true;
             }
             game_phase.game_started = true;
+            game_time.is_paused = false;
+            game_time.speed_multiplier = 1.0;
         }
     }
 }
@@ -338,6 +341,7 @@ pub fn resume_game_button_system(
     mut menu_state: ResMut<MenuState>,
     mut main_menu_visibility: Query<&mut Visibility, With<MainMenuRoot>>,
     mut game_phase: ResMut<GamePhase>,
+    mut game_time: ResMut<GameTime>,
     mut load_request: ResMut<crate::save::LoadRequest>,
     mut game_ui_query: Query<&mut Visibility, (With<GameUiRoot>, Without<MainMenuRoot>, Without<SettingsMenuRoot>)>,
 ) {
@@ -355,6 +359,10 @@ pub fn resume_game_button_system(
             }
             game_phase.game_started = true;
             load_request.pending = true;
+            game_time.is_paused = false;
+            if game_time.speed_multiplier == 0.0 {
+                game_time.speed_multiplier = 1.0;
+            }
         }
     }
 }
@@ -403,6 +411,25 @@ pub fn quit_button_system(
     for interaction in interaction_query.iter() {
         if *interaction == Interaction::Clicked {
             std::process::exit(0);
+        }
+    }
+}
+
+// ============================================================
+// System: Pause all game logic while main menu is showing
+// ============================================================
+pub fn menu_pause_system(
+    menu_state: Res<MenuState>,
+    mut game_time: ResMut<GameTime>,
+) {
+    match menu_state.current {
+        GameMenuState::MainMenu | GameMenuState::Settings => {
+            if !game_time.is_paused {
+                game_time.is_paused = true;
+            }
+        }
+        GameMenuState::Playing => {
+            // Let speed control / space toggle decide the pause state during play
         }
     }
 }
