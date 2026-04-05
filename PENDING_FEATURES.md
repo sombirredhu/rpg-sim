@@ -184,7 +184,7 @@
 - [x] Heroes can refuse night missions (low morale)
 - [x] Heroes leave kingdom if idle too long
 - [ ] Heroes fall in love at the inn
-- [ ] Heroes flee in panic during overwhelming battles
+- [x] Heroes flee in panic during overwhelming battles
 - [ ] Heroes have preferences beyond personality (e.g., favorite buildings)
 - [ ] Emergent storytelling events
 

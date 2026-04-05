@@ -175,6 +175,26 @@ pub fn hero_ai_system(
             }
         }
 
+        // Priority 3.5: Check for panic (low HP + low morale + many nearby enemies)
+        if stats.hp < stats.max_hp * 0.5 && hero.morale < 30.0 {
+            let nearby_enemies: Vec<_> = enemies.iter()
+                .filter(|(_, et, es)| {
+                    let dist = (Vec2::new(et.translation.x, et.translation.y) - hero_pos).length();
+                    dist < 120.0 && es.hp > 0.0
+                })
+                .collect();
+            if nearby_enemies.len() >= 2 {
+                let avg_enemy_pos: Vec2 = nearby_enemies.iter()
+                    .map(|(_, et, _)| Vec2::new(et.translation.x, et.translation.y))
+                    .fold(Vec2::ZERO, |acc, p| acc + p) / nearby_enemies.len() as f32;
+                let flee_dir = (hero_pos - avg_enemy_pos).normalize();
+                let flee_target = hero_pos + flee_dir * 100.0;
+                bounty_board.unassign_hero(hero_entity);
+                *state = HeroState::MovingTo { target: flee_target };
+                continue;
+            }
+        }
+
         // Priority 4: Attack nearby enemies
         if let Some((enemy_entity, _, _)) = enemies.iter()
             .filter(|(_, et, es)| {
