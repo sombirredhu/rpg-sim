@@ -12,6 +12,7 @@ pub fn building_placement_system(
     mut economy: ResMut<GameEconomy>,
     mut game_phase: ResMut<GamePhase>,
     kingdom: Res<KingdomState>,
+    buildings: Query<(&Building, &Transform)>,
     sprites: Res<SpriteAssets>,
     mut alerts: ResMut<GameAlerts>,
 ) {
@@ -44,6 +45,16 @@ pub fn building_placement_system(
             if !kingdom.rank.available_buildings().contains(&selected) {
                 alerts.push("Building not available at current rank!".to_string());
                 return;
+            }
+
+            // Overlap check: prevent placing too close to existing buildings
+            const BUILDING_MIN_SPACING: f32 = 50.0;
+            for (_, transform) in buildings.iter() {
+                let existing_pos = Vec2::new(transform.translation.x, transform.translation.y);
+                if (existing_pos - world_pos).length() < BUILDING_MIN_SPACING {
+                    alerts.push("Building too close to another structure!".to_string());
+                    return;
+                }
             }
 
             economy.gold -= cost;

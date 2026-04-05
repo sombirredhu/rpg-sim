@@ -193,7 +193,7 @@
 - [ ] Hero Shopping state (exists in code but unused - heroes visit market)
 - [ ] Escort merchant bounties (Objective bounty subtype)
 - [ ] Map grid-based building placement (currently free placement)
-- [ ] Building placement validation (overlap detection)
+- [x] Building placement validation (overlap detection)
 - [ ] Tutorial / onboarding (learn in 2 minutes per GDD)
 - [ ] iOS & Android builds (currently desktop Bevy app)
 
