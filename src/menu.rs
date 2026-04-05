@@ -213,6 +213,7 @@ fn spawn_settings_menu(commands: &mut Commands, font: Handle<Font>) {
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
+                display: Display::None,
                 ..Default::default()
             },
             color: UiColor(Color::rgb(0.08, 0.11, 0.09)),
@@ -314,15 +315,17 @@ fn spawn_setting_row(
 pub fn start_game_button_system(
     mut interaction_query: Query<&Interaction, (With<StartGameButton>, Changed<Interaction>)>,
     mut menu_state: ResMut<MenuState>,
-    mut main_menu_visibility: Query<&mut Visibility, With<MainMenuRoot>>,
+    mut main_menu: Query<(&mut Style, &mut Visibility), With<MainMenuRoot>>,
     mut game_phase: ResMut<GamePhase>,
     mut game_time: ResMut<GameTime>,
     mut game_ui_query: Query<&mut Visibility, (With<GameUiRoot>, Without<MainMenuRoot>, Without<SettingsMenuRoot>)>,
 ) {
+    if menu_state.current != GameMenuState::MainMenu { return; }
     for interaction in interaction_query.iter_mut() {
         if *interaction == Interaction::Clicked {
             menu_state.current = GameMenuState::Playing;
-            for mut vis in main_menu_visibility.iter_mut() {
+            for (mut style, mut vis) in main_menu.iter_mut() {
+                style.display = Display::None;
                 vis.is_visible = false;
             }
             // Show in-game UI
@@ -339,19 +342,23 @@ pub fn start_game_button_system(
 pub fn resume_game_button_system(
     mut interaction_query: Query<&Interaction, (With<ResumeGameButton>, Changed<Interaction>)>,
     mut menu_state: ResMut<MenuState>,
-    mut main_menu_visibility: Query<&mut Visibility, With<MainMenuRoot>>,
+    mut main_menu: Query<(&mut Style, &mut Visibility), With<MainMenuRoot>>,
     mut game_phase: ResMut<GamePhase>,
     mut game_time: ResMut<GameTime>,
     mut load_request: ResMut<crate::save::LoadRequest>,
+    mut alerts: ResMut<GameAlerts>,
     mut game_ui_query: Query<&mut Visibility, (With<GameUiRoot>, Without<MainMenuRoot>, Without<SettingsMenuRoot>)>,
 ) {
+    if menu_state.current != GameMenuState::MainMenu { return; }
     for interaction in interaction_query.iter_mut() {
         if *interaction == Interaction::Clicked {
             if !crate::save::has_save() {
+                alerts.push("No save found — start a new game instead.".to_string());
                 return;
             }
             menu_state.current = GameMenuState::Playing;
-            for mut vis in main_menu_visibility.iter_mut() {
+            for (mut style, mut vis) in main_menu.iter_mut() {
+                style.display = Display::None;
                 vis.is_visible = false;
             }
             for mut vis in game_ui_query.iter_mut() {
@@ -370,16 +377,19 @@ pub fn resume_game_button_system(
 pub fn settings_button_system(
     mut interaction_query: Query<&Interaction, (With<SettingsButton>, Changed<Interaction>)>,
     mut menu_state: ResMut<MenuState>,
-    mut main_menu_visibility: Query<&mut Visibility, (With<MainMenuRoot>, Without<SettingsMenuRoot>)>,
-    mut settings_menu_visibility: Query<&mut Visibility, (With<SettingsMenuRoot>, Without<MainMenuRoot>)>,
+    mut main_menu: Query<(&mut Style, &mut Visibility), (With<MainMenuRoot>, Without<SettingsMenuRoot>)>,
+    mut settings_menu: Query<(&mut Style, &mut Visibility), (With<SettingsMenuRoot>, Without<MainMenuRoot>)>,
 ) {
+    if menu_state.current != GameMenuState::MainMenu { return; }
     for interaction in interaction_query.iter_mut() {
         if *interaction == Interaction::Clicked {
             menu_state.current = GameMenuState::Settings;
-            for mut vis in main_menu_visibility.iter_mut() {
+            for (mut style, mut vis) in main_menu.iter_mut() {
+                style.display = Display::None;
                 vis.is_visible = false;
             }
-            for mut vis in settings_menu_visibility.iter_mut() {
+            for (mut style, mut vis) in settings_menu.iter_mut() {
+                style.display = Display::Flex;
                 vis.is_visible = true;
             }
         }
@@ -389,16 +399,19 @@ pub fn settings_button_system(
 pub fn back_button_system(
     mut interaction_query: Query<&Interaction, (With<BackButton>, Changed<Interaction>)>,
     mut menu_state: ResMut<MenuState>,
-    mut main_menu_visibility: Query<&mut Visibility, (With<MainMenuRoot>, Without<SettingsMenuRoot>)>,
-    mut settings_menu_visibility: Query<&mut Visibility, (With<SettingsMenuRoot>, Without<MainMenuRoot>)>,
+    mut main_menu: Query<(&mut Style, &mut Visibility), (With<MainMenuRoot>, Without<SettingsMenuRoot>)>,
+    mut settings_menu: Query<(&mut Style, &mut Visibility), (With<SettingsMenuRoot>, Without<MainMenuRoot>)>,
 ) {
+    if menu_state.current != GameMenuState::Settings { return; }
     for interaction in interaction_query.iter_mut() {
         if *interaction == Interaction::Clicked {
             menu_state.current = GameMenuState::MainMenu;
-            for mut vis in main_menu_visibility.iter_mut() {
+            for (mut style, mut vis) in main_menu.iter_mut() {
+                style.display = Display::Flex;
                 vis.is_visible = true;
             }
-            for mut vis in settings_menu_visibility.iter_mut() {
+            for (mut style, mut vis) in settings_menu.iter_mut() {
+                style.display = Display::None;
                 vis.is_visible = false;
             }
         }
@@ -407,7 +420,9 @@ pub fn back_button_system(
 
 pub fn quit_button_system(
     interaction_query: Query<&Interaction, (With<QuitButton>, Changed<Interaction>)>,
+    menu_state: Res<MenuState>,
 ) {
+    if menu_state.current != GameMenuState::MainMenu { return; }
     for interaction in interaction_query.iter() {
         if *interaction == Interaction::Clicked {
             std::process::exit(0);
