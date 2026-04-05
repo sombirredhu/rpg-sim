@@ -30,8 +30,9 @@ pub fn road_placement_system(
     sprites: Res<SpriteAssets>,
     mut _alerts: ResMut<GameAlerts>,
 ) {
-    // Only place roads while holding R + left click
-    if game_phase.build_mode || game_phase.show_build_menu || game_phase.bounty_board_open || !keyboard.pressed(KeyCode::R) {
+    // Place roads while holding R key OR road tool is active
+    let tool_active = keyboard.pressed(KeyCode::R) || game_phase.road_tool_active;
+    if game_phase.build_mode || game_phase.show_build_menu || game_phase.bounty_board_open || !tool_active {
         return;
     }
     if !mouse_input.pressed(MouseButton::Left) {
@@ -888,17 +889,64 @@ pub fn era_siege_system(
 // ================================================================
 
 pub fn torch_defense_system(
-    buildings: Query<(&Building, &Transform)>,
+    mut commands: Commands,
+    buildings: Query<(Entity, &Building, &Transform)>,
     mut heroes: Query<(Entity, &mut HeroStats, &Transform), With<Hero>>,
+    mut torch_halos: Query<(Entity, &mut TorchHalo)>,
     game_time: Res<GameTime>,
     mut buffed_heroes: Local<HashSet<Entity>>,
+    mut tracked_buildings: Local<HashSet<Entity>>,
+    time: Res<Time>,
 ) {
     const TORCH_DEFENSE_BONUS: f32 = 3.0;
+    const TORCH_RADIUS: f32 = 80.0;
 
     if game_time.is_night() {
+        // Spawn torch halos for non-destroyed buildings
+        for (building_entity, building, transform) in buildings.iter() {
+            if building.is_destroyed || tracked_buildings.contains(&building_entity) {
+                continue;
+            }
+            let bpos = Vec2::new(transform.translation.x, transform.translation.y);
+            commands.spawn_bundle(SpriteBundle {
+                sprite: Sprite {
+                    color: Color::rgba(1.0, 0.6, 0.2, 0.15),
+                    custom_size: Some(Vec2::new(TORCH_RADIUS * 2.0, TORCH_RADIUS * 2.0)),
+                    ..Default::default()
+                },
+                transform: Transform::from_translation(Vec3::new(bpos.x, bpos.y, 2.0)),
+                ..Default::default()
+            })
+            .insert(TorchHalo {
+                parent_building: building_entity,
+                pulse_timer: rand::random::<f32>() * std::f32::consts::TAU,
+            });
+            tracked_buildings.insert(building_entity);
+        }
+
+        // Remove torch halos for destroyed buildings
+        let dead_parents: Vec<Entity> = torch_halos
+            .iter()
+            .filter(|(_, halo)| {
+                buildings.get(halo.parent_building)
+                    .map(|(_, b, _)| b.is_destroyed)
+                    .unwrap_or(true)
+            })
+            .map(|(e, _)| e)
+            .collect();
+        for e in dead_parents {
+            commands.entity(e).despawn();
+        }
+
+        // Pulse remaining torch halos
+        for (_, mut halo) in torch_halos.iter_mut() {
+            halo.pulse_timer += time.delta_seconds();
+        }
+
+        // Defense bonus logic
         for (entity, mut stats, hero_t) in heroes.iter_mut() {
             let hpos = Vec2::new(hero_t.translation.x, hero_t.translation.y);
-            let near_building = buildings.iter().any(|(building, transform)| {
+            let near_building = buildings.iter().any(|(_, building, transform)| {
                 !building.is_destroyed
                     && (Vec2::new(transform.translation.x, transform.translation.y) - hpos).length() < 100.0
             });
@@ -912,6 +960,13 @@ pub fn torch_defense_system(
             }
         }
     } else {
+        // Daytime: clear all torch halos
+        let halos: Vec<Entity> = torch_halos.iter().map(|(e, _)| e).collect();
+        for e in halos {
+            commands.entity(e).despawn();
+        }
+        tracked_buildings.clear();
+
         for (entity, mut stats, _) in heroes.iter_mut() {
             if buffed_heroes.remove(&entity) {
                 stats.defense -= TORCH_DEFENSE_BONUS;
@@ -968,6 +1023,8 @@ pub fn animation_mode_system(
         let desired = match state {
             HeroState::AttackingEnemy { .. } => AnimMode::Attack,
             HeroState::Dead { .. } => AnimMode::Hurt,
+            HeroState::Resting => AnimMode::Rest,
+            HeroState::Idle => AnimMode::Idle,
             _ => AnimMode::Walk,
         };
 
@@ -986,6 +1043,18 @@ pub fn animation_mode_system(
                 anim.frame_count = anim_set.walk_frames;
                 anim.frames_per_row = anim_set.walk_frames;
                 anim.frame_duration = 1.0 / 8.0;
+            }
+            AnimMode::Idle => {
+                *atlas_handle = anim_set.idle_atlas.clone();
+                anim.frame_count = anim_set.idle_frames;
+                anim.frames_per_row = anim_set.idle_frames;
+                anim.frame_duration = 1.0 / 4.0;
+            }
+            AnimMode::Rest => {
+                *atlas_handle = anim_set.rest_atlas.clone();
+                anim.frame_count = anim_set.rest_frames;
+                anim.frames_per_row = anim_set.rest_frames;
+                anim.frame_duration = 1.0 / 3.0;
             }
             AnimMode::Attack => {
                 *atlas_handle = anim_set.attack_atlas.clone();
@@ -1059,6 +1128,18 @@ pub fn enemy_animation_mode_system(
                 anim.frames_per_row = anim_set.walk_frames;
                 anim.frame_duration = 1.0 / 6.0;
             }
+            AnimMode::Idle => {
+                *atlas_handle = anim_set.idle_atlas.clone();
+                anim.frame_count = anim_set.idle_frames;
+                anim.frames_per_row = anim_set.idle_frames;
+                anim.frame_duration = 1.0 / 4.0;
+            }
+            AnimMode::Rest => {
+                *atlas_handle = anim_set.rest_atlas.clone();
+                anim.frame_count = anim_set.rest_frames;
+                anim.frames_per_row = anim_set.rest_frames;
+                anim.frame_duration = 1.0 / 3.0;
+            }
             AnimMode::Attack => {
                 *atlas_handle = anim_set.attack_atlas.clone();
                 anim.frame_count = anim_set.attack_frames;
@@ -1121,6 +1202,7 @@ pub fn inspect_system(
                     HeroState::Resting => "Resting",
                     HeroState::Shopping => "Shopping",
                     HeroState::Dead { .. } => "Dead",
+                    HeroState::Casting { .. } => "Casting",
                 };
                 let leg = if hero.is_legendary { " [LEGENDARY]" } else { "" };
                 let equip_atk = equipment.total_atk_bonus();
@@ -1480,4 +1562,47 @@ pub fn map_expansion_system(
         "TERRITORY EXPANDED: {} revealed! (Radius: {:.0}) [-{:.0}g]",
         zone_name, new_radius, cost
     ));
+
+    // Spawn new decorations in the expanded ring so it doesn't look blank
+    let num_trees = 8 + (fog.expansions * 2);
+    let tree_tex = [
+        sprites.deco_pine1.clone(), sprites.deco_pine3.clone(),
+        sprites.deco_pine4.clone(), sprites.deco_tree_oak1.clone(),
+        sprites.deco_tree_dead1.clone(), sprites.deco_tree_big1.clone(),
+    ];
+    for _ in 0..num_trees {
+        let a = rand::random::<f32>() * TAU;
+        let r = old_radius + rand::random::<f32>() * 100.0;
+        let pos = Vec2::new(a.cos() * r, a.sin() * r);
+        let idx = rand::random::<usize>() % tree_tex.len();
+        let scale = 0.8 + rand::random::<f32>() * 0.5;
+        commands.spawn_bundle(SpriteBundle {
+            texture: tree_tex[idx].clone(),
+            transform: Transform::from_translation(Vec3::new(pos.x, pos.y, 4.0))
+                .with_scale(Vec3::splat(scale)),
+            ..Default::default()
+        })
+        .insert(MapDecoration);
+    }
+
+    // Spawn small rocks and bushes in expanded area
+    let small_tex = [
+        sprites.deco_rock_small1.clone(),
+        sprites.deco_rock_small2.clone(),
+        sprites.deco_bush1.clone(),
+    ];
+    for _ in 0..8 {
+        let a = rand::random::<f32>() * TAU;
+        let r = old_radius + rand::random::<f32>() * 80.0;
+        let pos = Vec2::new(a.cos() * r, a.sin() * r);
+        let idx = rand::random::<usize>() % small_tex.len();
+        let z = if rand::random::<bool>() { 1.0 } else { 2.0 };
+        commands.spawn_bundle(SpriteBundle {
+            texture: small_tex[idx].clone(),
+            transform: Transform::from_translation(Vec3::new(pos.x, pos.y, z))
+                .with_scale(Vec3::splat(0.7 + rand::random::<f32>() * 0.3)),
+            ..Default::default()
+        })
+        .insert(MapDecoration);
+    }
 }

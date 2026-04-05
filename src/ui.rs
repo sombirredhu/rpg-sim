@@ -154,20 +154,161 @@ pub fn setup_ui(
                     .insert(KingdomRankText);
                 });
 
-                // Speed display
-                top_bar.spawn_bundle(TextBundle {
-                    text: Text::with_section(
-                        "1x",
-                        TextStyle {
-                            font: font.clone(),
-                            font_size: 18.0,
-                            color: Color::rgb(0.8, 0.8, 0.8),
-                        },
-                        TextAlignment::default(),
-                    ),
+                // Speed + Action buttons row
+                top_bar.spawn_bundle(NodeBundle {
+                    style: Style {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        ..Default::default()
+                    },
+                    color: UiColor(Color::NONE),
                     ..Default::default()
                 })
-                .insert(SpeedText);
+                .with_children(|btn_row| {
+                    // Speed button (clickable)
+                    btn_row.spawn_bundle(ButtonBundle {
+                        style: Style {
+                            size: Size::new(Val::Px(40.0), Val::Px(28.0)),
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::Center,
+                            margin: Rect { right: Val::Px(4.0), ..Default::default() },
+                            ..Default::default()
+                        },
+                        color: UiColor(Color::rgba(0.3, 0.3, 0.3, 0.8)),
+                        ..Default::default()
+                    })
+                    .insert(SpeedButton)
+                    .with_children(|btn| {
+                        btn.spawn_bundle(TextBundle {
+                            text: Text::with_section(
+                                "1x",
+                                TextStyle { font: font.clone(), font_size: 16.0, color: Color::rgb(0.8, 0.8, 0.8) },
+                                TextAlignment::default(),
+                            ),
+                            ..Default::default()
+                        })
+                        .insert(SpeedText);
+                    });
+
+                    // Pause button (clickable)
+                    btn_row.spawn_bundle(ButtonBundle {
+                        style: Style {
+                            size: Size::new(Val::Px(32.0), Val::Px(28.0)),
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::Center,
+                            margin: Rect { right: Val::Px(4.0), ..Default::default() },
+                            ..Default::default()
+                        },
+                        color: UiColor(Color::rgba(0.3, 0.3, 0.3, 0.8)),
+                        ..Default::default()
+                    })
+                    .insert(PauseButton)
+                    .with_children(|btn| {
+                        btn.spawn_bundle(TextBundle {
+                            text: Text::with_section(
+                                "||",
+                                TextStyle { font: font.clone(), font_size: 16.0, color: Color::rgb(0.8, 0.8, 0.8) },
+                                TextAlignment::default(),
+                            ),
+                            ..Default::default()
+                        });
+                    });
+
+                    // Build button
+                    btn_row.spawn_bundle(ButtonBundle {
+                        style: Style {
+                            size: Size::new(Val::Px(32.0), Val::Px(28.0)),
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::Center,
+                            margin: Rect { right: Val::Px(4.0), ..Default::default() },
+                            ..Default::default()
+                        },
+                        color: UiColor(Color::rgba(0.2, 0.5, 0.2, 0.8)),
+                        ..Default::default()
+                    })
+                    .insert(BuildButton)
+                    .with_children(|btn| {
+                        btn.spawn_bundle(TextBundle {
+                            text: Text::with_section(
+                                "B",
+                                TextStyle { font: font.clone(), font_size: 16.0, color: Color::rgb(0.6, 1.0, 0.6) },
+                                TextAlignment::default(),
+                            ),
+                            ..Default::default()
+                        });
+                    });
+
+                    // Bounty board button
+                    btn_row.spawn_bundle(ButtonBundle {
+                        style: Style {
+                            size: Size::new(Val::Px(32.0), Val::Px(28.0)),
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::Center,
+                            margin: Rect { right: Val::Px(4.0), ..Default::default() },
+                            ..Default::default()
+                        },
+                        color: UiColor(Color::rgba(0.5, 0.4, 0.1, 0.8)),
+                        ..Default::default()
+                    })
+                    .insert(BountyButton)
+                    .with_children(|btn| {
+                        btn.spawn_bundle(TextBundle {
+                            text: Text::with_section(
+                                "Q",
+                                TextStyle { font: font.clone(), font_size: 16.0, color: Color::rgb(1.0, 0.85, 0.4) },
+                                TextAlignment::default(),
+                            ),
+                            ..Default::default()
+                        });
+                    });
+
+                    // Expand button
+                    btn_row.spawn_bundle(ButtonBundle {
+                        style: Style {
+                            size: Size::new(Val::Px(32.0), Val::Px(28.0)),
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::Center,
+                            margin: Rect { right: Val::Px(4.0), ..Default::default() },
+                            ..Default::default()
+                        },
+                        color: UiColor(Color::rgba(0.2, 0.2, 0.5, 0.8)),
+                        ..Default::default()
+                    })
+                    .insert(ExpandButton)
+                    .with_children(|btn| {
+                        btn.spawn_bundle(TextBundle {
+                            text: Text::with_section(
+                                "E",
+                                TextStyle { font: font.clone(), font_size: 16.0, color: Color::rgb(0.6, 0.6, 1.0) },
+                                TextAlignment::default(),
+                            ),
+                            ..Default::default()
+                        });
+                    });
+
+                    // Road tool button
+                    btn_row.spawn_bundle(ButtonBundle {
+                        style: Style {
+                            size: Size::new(Val::Px(32.0), Val::Px(28.0)),
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::Center,
+                            ..Default::default()
+                        },
+                        color: UiColor(Color::rgba(0.3, 0.2, 0.1, 0.8)),
+                        ..Default::default()
+                    })
+                    .insert(RoadToolButton)
+                    .with_children(|btn| {
+                        btn.spawn_bundle(TextBundle {
+                            text: Text::with_section(
+                                "R",
+                                TextStyle { font: font.clone(), font_size: 16.0, color: Color::rgb(1.0, 0.7, 0.4) },
+                                TextAlignment::default(),
+                            ),
+                            ..Default::default()
+                        });
+                    });
+                });
             });
 
             // ===== HERO PANEL (right side) =====
@@ -334,7 +475,7 @@ pub fn setup_ui(
             .with_children(|bar| {
                 bar.spawn_bundle(TextBundle {
                     text: Text::with_section(
-                        "WASD:Move | Scroll:Zoom | B:Build | U:Upgrade | E:Expand | 1/2/3:Speed | Space:Pause | Q:Bounty",
+                        "LeftClick:Select | RightDrag:Pan | Scroll:Zoom | WASD:Move | TopBarButtons:Speed/Pause/Build/Bounty/Expand/Road",
                         TextStyle {
                             font: font.clone(),
                             font_size: 13.0,
@@ -433,6 +574,7 @@ pub fn update_hero_panel_ui(
             HeroState::Resting => "Resting",
             HeroState::Shopping => "Shopping",
             HeroState::Dead { .. } => "Dead",
+            HeroState::Casting { .. } => "Casting",
         };
         let legendary = if hero.is_legendary { "*" } else { "" };
         info.push_str(&format!(
@@ -586,7 +728,7 @@ pub fn update_bounty_board_ui(
         "\n--- Place Bounty: {:.0}g [{}] ---\n",
         amount, can_afford
     ));
-    info.push_str("Up/Down: +/-10g | Shift: +/-50g\n");
+    info.push_str("+/-10g: Up/Down | +/-50g: Shift+Up/Down\n");
     info.push_str("Click map to place");
 
     for mut text in text_query.iter_mut() {

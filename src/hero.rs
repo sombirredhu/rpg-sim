@@ -58,6 +58,11 @@ pub fn hero_ai_system(
         }
         decision_timer.0 = 2.0 + rand::random::<f32>() * 1.0;
 
+        // Skip heroes currently channeling spells
+        if matches!(&*state, HeroState::Casting { .. }) {
+            continue;
+        }
+
         let hero_pos = Vec2::new(transform.translation.x, transform.translation.y);
 
         // Priority 1: If HP is very low, seek inn/rest
@@ -276,6 +281,9 @@ pub fn hero_movement_system(
             }
             HeroState::Resting => {
                 // Stay still while resting
+            }
+            HeroState::Casting { .. } => {
+                // Stay still while channeling
             }
             _ => {}
         }

@@ -3,6 +3,48 @@
 use bevy::prelude::*;
 
 // ============================================================
+// UI INTERACTION COMPONENTS — Marker components for mouse interaction
+// ============================================================
+
+/// Attached to the Speed display button in the HUD
+#[derive(Component)]
+pub struct SpeedButton;
+
+/// Attached to the Pause button in the HUD
+#[derive(Component)]
+pub struct PauseButton;
+
+/// Attached to the Build menu button in the HUD
+#[derive(Component)]
+pub struct BuildButton;
+
+/// Attached to the Bounty board button in the HUD
+#[derive(Component)]
+pub struct BountyButton;
+
+/// Attached to the Expand map button in the HUD
+#[derive(Component)]
+pub struct ExpandButton;
+
+/// Attached to the Road tool toggle button in the HUD
+#[derive(Component)]
+pub struct RoadToolButton;
+
+/// Visual highlight ring placed around a selected building
+#[derive(Component)]
+pub struct BuildingHighlight;
+
+/// Resource tracking which building entity is currently selected on the map
+#[derive(Default)]
+pub struct SelectedBuilding {
+    pub entity: Option<Entity>,
+}
+
+/// Resource tracking whether the road tool is currently active (click-paint mode)
+#[derive(Default)]
+pub struct RoadToolActive(pub bool);
+
+// ============================================================
 // HERO COMPONENTS
 // ============================================================
 
@@ -163,6 +205,7 @@ pub enum HeroState {
     Resting,       // At inn, restoring HP
     Shopping,      // At market
     Dead { respawn_timer: f32 },
+    Casting { channel_elapsed: f32, channel_duration: f32, focus_entity: Entity }, // Mages channel Arcane Surge
 }
 
 impl Default for HeroState {
@@ -810,6 +853,28 @@ impl Default for AttackCooldown {
 #[derive(Component)]
 pub struct HealthBar;
 
+/// Cooldown timer for Mage's Arcane Surge ability
+#[derive(Component)]
+pub struct ArcaneSurgeCooldown {
+    pub timer: f32,
+    pub duration: f32, // 8 seconds
+}
+
+impl Default for ArcaneSurgeCooldown {
+    fn default() -> Self {
+        Self {
+            timer: 0.0,
+            duration: 8.0,
+        }
+    }
+}
+
+/// Visual marker for an active Arcane Surge blast (used for temporary effect sprite)
+#[derive(Component)]
+pub struct ArcaneSurgeEffect {
+    pub timer: f32,
+}
+
 // ============================================================
 // UI MARKER COMPONENTS
 // ============================================================
@@ -891,6 +956,7 @@ pub struct GamePhase {
     pub bounty_board_open: bool,
     pub show_build_menu: bool,
     pub manual_bounty_amount: f32,
+    pub road_tool_active: bool,
 }
 
 impl Default for GamePhase {
@@ -901,6 +967,7 @@ impl Default for GamePhase {
             bounty_board_open: false,
             show_build_menu: false,
             manual_bounty_amount: 30.0,
+            road_tool_active: false,
         }
     }
 }
@@ -1221,8 +1288,10 @@ impl SpriteAnimation {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AnimMode {
     Walk,
+    Idle,
     Attack,
     Hurt,
+    Rest,
 }
 
 /// Stores atlas handles for each animation mode so the sprite can be swapped at runtime.
@@ -1230,6 +1299,10 @@ pub enum AnimMode {
 pub struct AnimationSet {
     pub walk_atlas: Handle<TextureAtlas>,
     pub walk_frames: usize,
+    pub idle_atlas: Handle<TextureAtlas>,
+    pub idle_frames: usize,
+    pub rest_atlas: Handle<TextureAtlas>,
+    pub rest_frames: usize,
     pub attack_atlas: Handle<TextureAtlas>,
     pub attack_frames: usize,
     pub hurt_atlas: Handle<TextureAtlas>,
@@ -1237,6 +1310,16 @@ pub struct AnimationSet {
     /// How many directional rows the hurt sheet has (1 for single-row, 4 for full).
     pub hurt_rows: usize,
     pub current_mode: AnimMode,
+}
+
+// ============================================================
+// TORCH HALO (night visual effect around buildings)
+// ============================================================
+
+#[derive(Component)]
+pub struct TorchHalo {
+    pub parent_building: Entity,
+    pub pulse_timer: f32,
 }
 
 // ============================================================

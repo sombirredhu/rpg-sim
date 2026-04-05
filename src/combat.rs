@@ -58,8 +58,7 @@ pub fn hero_attack_system(
                             // Warriors focus on protecting allies via Fortify aura
                         }
                         HeroClass::Mage => {
-                            // Arcane Surge: AoE potential (simplified to bonus damage)
-                            damage *= 1.3;
+                            // Mages don't get bonus single-target damage; Arcane Surge is a separate ability
                         }
                         HeroClass::Archer => {
                             // Volley: AoE arrow rain on clustered enemies
@@ -280,6 +279,173 @@ pub fn enemy_reward_system(
 
         if event.gold_reward >= 50.0 {
             alerts.push(format!("Enemy slain! +{:.0} gold", event.gold_reward));
+        }
+    }
+}
+
+// Arcane Surge constants
+/// Blast radius for Arcane Surge (world units)
+const ARCANE_SURGE_RADIUS: f32 = 80.0;
+/// Channel duration before fire
+const ARCANE_SURGE_CHANNEL: f32 = 1.5;
+/// Arcane Surge cooldown on the caster
+const ARCANE_SURGE_COOLDOWN: f32 = 8.0;
+/// Base blast damage per enemy hit (scales with mage attack)
+fn arcane_surge_damage(stats: &HeroStats) -> f32 {
+    (stats.attack * 1.5).max(5.0)
+}
+
+/// System: Mage AI decision to cast Arcane Surge when multiple enemies cluster nearby.
+/// Triggers when a mage is attacking an enemy and sees >= 2 enemies within blast radius.
+pub fn arcane_surge_ai_system(
+    mut mages: Query<(Entity, &Hero, &ArcaneSurgeCooldown, &Transform, &mut HeroState), With<Hero>>,
+    enemies: Query<&Transform, With<Enemy>>,
+) {
+    for (_mage_entity, hero, cooldown, _transform, mut state) in mages.iter_mut() {
+        if hero.class != HeroClass::Mage {
+            continue;
+        }
+        if cooldown.timer > 0.0 {
+            continue;
+        }
+        // Only trigger during active combat
+        let target = match *state {
+            HeroState::AttackingEnemy { target_entity } => target_entity,
+            _ => continue,
+        };
+
+        // Count enemies within blast radius of the primary target
+        if let Ok(target_transform) = enemies.get(target) {
+            let target_pos = Vec2::new(target_transform.translation.x, target_transform.translation.y);
+            let enemies_near = enemies
+                .iter()
+                .filter(|t| {
+                    let ep = Vec2::new(t.translation.x, t.translation.y);
+                    (ep - target_pos).length() <= ARCANE_SURGE_RADIUS
+                })
+                .count();
+
+            if enemies_near >= 2 {
+                *state = HeroState::Casting {
+                    channel_elapsed: 0.0,
+                    channel_duration: ARCANE_SURGE_CHANNEL,
+                    focus_entity: target,
+                };
+            }
+        }
+    }
+}
+
+/// System: Mage progresses through the Arcane Surge channel, then fires blast at completion.
+pub fn arcane_surge_channel_system(
+    mut commands: Commands,
+    mut mages: Query<(
+        Entity,
+        &Hero,
+        &HeroStats,
+        &mut ArcaneSurgeCooldown,
+        &Transform,
+    )>,
+    mut hero_states: Query<&mut HeroState, With<Hero>>,
+    mut enemies: Query<
+        (Entity, &mut EnemyStats, &Transform),
+        (With<Enemy>, Without<Hero>),
+    >,
+    mut alerts: ResMut<GameAlerts>,
+    time: Res<Time>,
+    game_time: Res<GameTime>,
+) {
+    let dt = time.delta_seconds() * game_time.speed_multiplier;
+    if dt == 0.0 {
+        return;
+    }
+
+    for (mage_entity, hero, stats, mut cooldown, mage_transform) in mages.iter_mut() {
+        if let Ok(mut state) = hero_states.get_mut(mage_entity) {
+            if let HeroState::Casting {
+                ref mut channel_elapsed,
+                channel_duration,
+                focus_entity,
+            } = *state
+            {
+                let new_elapsed = *channel_elapsed + dt;
+
+                // Check focus enemy still alive and mage still alive
+                let focus_alive = enemies.get(focus_entity).is_ok();
+                if !focus_alive || stats.hp <= 0.0 {
+                    *state = HeroState::Idle;
+                    continue;
+                }
+
+                if new_elapsed >= channel_duration {
+                    // Channel complete — deal blast damage to all enemies in range
+                    let mage_pos = Vec2::new(mage_transform.translation.x, mage_transform.translation.y);
+                    let blast_power = arcane_surge_damage(stats);
+                    let mut hit_count = 0;
+
+                    for (_enemy_entity, mut enemy_stats, enemy_transform) in enemies.iter_mut() {
+                        if enemy_stats.hp <= 0.0 {
+                            continue;
+                        }
+                        let enemy_pos =
+                            Vec2::new(enemy_transform.translation.x, enemy_transform.translation.y);
+                        if (enemy_pos - mage_pos).length() <= ARCANE_SURGE_RADIUS {
+                            enemy_stats.hp -= blast_power;
+                            hit_count += 1;
+                            spawn_arcane_blast_effect(&mut commands, enemy_pos);
+                        }
+                    }
+
+                    if hit_count > 0 {
+                        alerts.push(format!(
+                            "Arcane Surge! {} hit {} enemies!",
+                            hero.class.display_name(),
+                            hit_count
+                        ));
+                    }
+
+                    // Reset cooldown and return to idle
+                    cooldown.timer = ARCANE_SURGE_COOLDOWN;
+                    *state = HeroState::Idle;
+                } else {
+                    *channel_elapsed = new_elapsed;
+                }
+            }
+        }
+    }
+}
+
+fn spawn_arcane_blast_effect(commands: &mut Commands, pos: Vec2) {
+    commands
+        .spawn()
+        .insert_bundle(SpriteBundle {
+            sprite: Sprite {
+                color: Color::rgb(0.5, 0.2, 1.0),
+                custom_size: Some(Vec2::new(20.0, 20.0)),
+                ..Default::default()
+            },
+            transform: Transform::from_xyz(pos.x, pos.y, 15.0),
+            ..Default::default()
+        })
+        .insert(ArcaneSurgeEffect { timer: 0.5 });
+}
+
+/// System: Update and despawn Arcane Surge visual effects
+pub fn arcane_surge_effect_system(
+    mut commands: Commands,
+    mut effects: Query<(Entity, &mut ArcaneSurgeEffect)>,
+    time: Res<Time>,
+    game_time: Res<GameTime>,
+) {
+    let dt = time.delta_seconds() * game_time.speed_multiplier;
+    if dt == 0.0 {
+        return;
+    }
+
+    for (entity, mut effect) in effects.iter_mut() {
+        effect.timer -= dt;
+        if effect.timer <= 0.0 {
+            commands.entity(entity).despawn();
         }
     }
 }

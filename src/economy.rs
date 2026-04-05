@@ -30,6 +30,24 @@ pub fn tax_collection_system(
     economy.total_earned += earned;
 }
 
+/// System: Warn when treasury reserves drop below safe threshold
+pub fn treasury_warning_system(
+    economy: Res<GameEconomy>,
+    mut alerts: ResMut<GameAlerts>,
+    mut warned: Local<bool>,
+) {
+    const TREASURY_THRESHOLD: f32 = 200.0;
+
+    if economy.gold < TREASURY_THRESHOLD && !*warned {
+        alerts.push(format!("Warning: Treasury reserves below {}g! Current: {:.0}g", TREASURY_THRESHOLD, economy.gold));
+        *warned = true;
+    }
+
+    if economy.gold >= TREASURY_THRESHOLD + 50.0 {
+        *warned = false; // Reset warning when treasury recovers above threshold + buffer
+    }
+}
+
 /// System: Pay out bounties when completed
 pub fn bounty_payout_system(
     mut economy: ResMut<GameEconomy>,

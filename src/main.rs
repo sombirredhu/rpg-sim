@@ -18,6 +18,7 @@ mod day_night;
 mod ui;
 mod camera;
 mod features;
+mod mouse;
 
 use bevy::prelude::*;
 use components::*;
@@ -49,6 +50,7 @@ fn main() {
         .insert_resource(ActiveBuffs::default())
         .insert_resource(FogOfWar::default())
         .insert_resource(InspectTarget::default())
+        .insert_resource(components::SelectedBuilding::default())
         .insert_resource(ClearColor(Color::rgb(0.18, 0.32, 0.15)))
         // Events
         .add_event::<BountyCompletedEvent>()
@@ -65,6 +67,7 @@ fn main() {
         // Deferred startup that needs SpriteAssets
         .add_startup_system_to_stage(StartupStage::PostStartup, ui::setup_ui)
         .add_startup_system_to_stage(StartupStage::PostStartup, sprites::spawn_ground_tiles)
+        .add_startup_system_to_stage(StartupStage::PostStartup, sprites::spawn_terrain_overlays)
         .add_startup_system_to_stage(StartupStage::PostStartup, sprites::spawn_trees)
         .add_startup_system_to_stage(StartupStage::PostStartup, sprites::spawn_map_decorations)
         .add_startup_system_to_stage(StartupStage::PostStartup, building::spawn_initial_buildings)
@@ -74,13 +77,24 @@ fn main() {
         .add_startup_system_to_stage(StartupStage::PostStartup, features::spawn_resource_nodes)
         .add_startup_system_to_stage(StartupStage::PostStartup, features::spawn_fog_of_war)
         // Game logic systems
-        .add_system(camera::camera_control_system)
+        // Mouse interaction systems
+        .add_system(mouse::camera_drag_system)
+        .add_system(mouse::speed_button_click)
+        .add_system(mouse::pause_button_click)
+        .add_system(mouse::build_button_click)
+        .add_system(mouse::bounty_button_click)
+        .add_system(mouse::expand_button_click)
+        .add_system(mouse::road_tool_button_click)
+        .add_system(mouse::map_click_system)
+        .add_system(mouse::selected_building_action)
+        // Keyboard camera control (WASD — augmented by mouse drag)
         .add_system(day_night::day_night_cycle_system)
         .add_system(day_night::night_overlay_system)
         .add_system(day_night::speed_control_system)
         .add_system(economy::tax_collection_system)
         .add_system(economy::bounty_payout_system)
         .add_system(economy::auto_bounty_system)
+        .add_system(economy::treasury_warning_system)
         .add_system(economy::kingdom_progression_system)
         .add_system(hero::hero_ai_system)
         .add_system(hero::hero_movement_system)
@@ -99,6 +113,9 @@ fn main() {
         .add_system(combat::enemy_attack_system)
         .add_system(combat::healer_system)
         .add_system(combat::enemy_reward_system)
+        .add_system(combat::arcane_surge_ai_system)
+        .add_system(combat::arcane_surge_channel_system)
+        .add_system(combat::arcane_surge_effect_system)
         .add_system(audio::play_sfx_system)
         .add_system(building::building_placement_system)
         .add_system(building::building_upgrade_system)

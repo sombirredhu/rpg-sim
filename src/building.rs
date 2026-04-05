@@ -69,7 +69,7 @@ pub fn building_placement_system(
     }
 }
 
-/// System: Building upgrade on key press
+/// System: Building upgrade on key press (U key) - keyboard fallback
 pub fn building_upgrade_system(
     keyboard: Res<Input<KeyCode>>,
     _mouse_input: Res<Input<MouseButton>>,

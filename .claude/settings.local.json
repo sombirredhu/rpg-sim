@@ -4,7 +4,9 @@
       "Bash(cargo check:*)",
       "Bash(python3:*)",
       "Bash(powershell:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(timeout 15 cargo run)",
+      "Bash(cargo run:*)"
     ]
   },
   "spinnerTipsEnabled": false

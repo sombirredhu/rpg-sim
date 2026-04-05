@@ -38,7 +38,7 @@
 - [x] Healer healing nearby allies
 - [x] Warrior Fortify as damage reduction AURA for nearby allies
 - [x] Archer Volley as actual AoE arrow rain on clustered enemies
-- [ ] Mage Arcane Surge as channelled multi-target blast
+- [x] Mage Arcane Surge as channelled multi-target blast
 - [ ] Healer Sanctuary ability (healing pulse that revives fallen heroes)
 - [ ] Rogue stealth mechanic (enters camps unseen, priority kills)
 - [ ] Hero death with permanent loss if recovery bounty is neglected (partially done - respawn timer exists but no permanent death)
