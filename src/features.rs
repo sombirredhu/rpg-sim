@@ -575,11 +575,14 @@ pub fn resource_bounty_system(
 }
 
 pub fn spawn_resource_nodes(mut commands: Commands) {
+    // Structured placement: mines in gold mine zones, lumber in forest zones.
     let nodes = [
-        (Vec2::new(250.0, 150.0), ResourceType::Mine),
-        (Vec2::new(-200.0, -250.0), ResourceType::Mine),
-        (Vec2::new(-300.0, 200.0), ResourceType::LumberMill),
-        (Vec2::new(180.0, -200.0), ResourceType::LumberMill),
+        // Gold mines — NE and SW mine zones
+        (Vec2::new(480.0, 280.0), ResourceType::Mine),
+        (Vec2::new(-320.0, -280.0), ResourceType::Mine),
+        // Lumber mills — NW and SE forest zones
+        (Vec2::new(-450.0, 280.0), ResourceType::LumberMill),
+        (Vec2::new(500.0, -320.0), ResourceType::LumberMill),
     ];
 
     for (pos, rtype) in nodes {
@@ -590,7 +593,7 @@ pub fn spawn_resource_nodes(mut commands: Commands) {
         commands.spawn_bundle(SpriteBundle {
             sprite: Sprite {
                 color,
-                custom_size: Some(Vec2::new(20.0, 20.0)),
+                custom_size: Some(Vec2::new(24.0, 24.0)),
                 ..Default::default()
             },
             transform: Transform::from_translation(Vec3::new(pos.x, pos.y, 3.5)),
