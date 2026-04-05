@@ -24,6 +24,12 @@ cargo clippy           # Lint
 cargo build            # Build only
 ```
 
+## Git Workflow
+
+- **NEVER merge branches into main unless the user explicitly asks you to.**
+- Work on feature branches when needed.
+- Always commit changes before switching branches.
+
 ## Project Structure
 
 ### Source Files (`src/`, ~6,750 lines)
@@ -83,15 +89,33 @@ This is **not** modern Bevy. Key API differences:
 
 ## Game Design Reference
 
-The full Game Design Document (GDD v1.0) covers hero classes, buildings, economy rules, enemies, day/night cycle, kingdom progression, and mobile UI design. Core concepts:
+The full Game Design Document (GDD v1.0) is at [Realm_of_Bounties_GDD.txt](Realm_of_Bounties_GDD.txt). It covers hero classes, buildings, economy rules, enemies, day/night cycle, kingdom progression, and mobile UI design. Core concepts:
 - 5 hero classes (Warrior/Archer/Mage/Rogue/Healer) with personality-driven AI
 - 9 building types with 3 upgrade tiers each
 - Gold-only economy with tax/bounty/merchant income
 - Day/night cycle (8 min real-time), night = +50% threat spawn
 - Kingdom ranks: Hamlet → Village → Town → City → Kingdom
 
+## Feature Tracking
+
+All features and their current implementation status are tracked in [PENDING_FEATURES.md](PENDING_FEATURES.md). Check it before working on any feature to understand what's implemented, partial, or missing.
+
 ## Additional Documentation
 
 Check these files for detailed patterns when working on related code:
 
 - [Architectural Patterns](.claude/docs/architectural_patterns.md) — ECS patterns, state management, system communication, asset loading, and combat model conventions used across the codebase
+
+## Workflow: Troubleshoot After Every Task
+
+After completing every task, you **must** troubleshoot the game by running it:
+
+1. Run `cargo run` to build and launch the game
+2. Verify the game starts and runs smoothly without errors or crashes
+3. If the game fails to compile, crashes, or exhibits broken behavior:
+   - Read the error output carefully to identify the root cause
+   - Fix the issue(s) in the code
+   - Re-run `cargo run` to verify the fix
+4. Repeat step 3 until the game runs smoothly
+
+Do not consider a task complete until the game runs without issues after your changes.

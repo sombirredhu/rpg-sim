@@ -137,8 +137,8 @@
 - [x] Pause during planning
 - [ ] Offline progress (kingdom earns passive income while away)
 - [ ] Push notifications (boss raid warnings, building completions)
-- [ ] Auto-save (every 30 seconds)
-- [ ] Save/Load system of any kind
+- [x] Auto-save (every 30 seconds)
+- [x] Save/Load system of any kind
 
 ## 10. Kingdom Progression & Win Conditions (GDD Section 10)
 - [x] 5 Kingdom ranks: Hamlet → Village → Town → City → Kingdom
@@ -167,7 +167,7 @@
 - [ ] Boss raid siren horn effect
 - [x] Main menu screen with Start New Game, Resume Game, Settings, and Quit buttons
 - [x] Settings sub-menu with toggleable options
-- [ ] Save/Load functionality for resume game
+- [x] Save/Load functionality for resume game
 - [ ] Settings with actual sliders/toggles (SFX volume, music volume, camera speed)
 - [x] Hide in-game HUD until game is started from menu
 - [ ] Pause game logic while main menu is active (time, enemies, economy)

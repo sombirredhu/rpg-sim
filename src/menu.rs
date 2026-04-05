@@ -338,16 +338,23 @@ pub fn resume_game_button_system(
     mut menu_state: ResMut<MenuState>,
     mut main_menu_visibility: Query<&mut Visibility, With<MainMenuRoot>>,
     mut game_phase: ResMut<GamePhase>,
+    mut load_request: ResMut<crate::save::LoadRequest>,
+    mut game_ui_query: Query<&mut Visibility, (With<GameUiRoot>, Without<MainMenuRoot>, Without<SettingsMenuRoot>)>,
 ) {
     for interaction in interaction_query.iter_mut() {
         if *interaction == Interaction::Clicked {
+            if !crate::save::has_save() {
+                return;
+            }
             menu_state.current = GameMenuState::Playing;
             for mut vis in main_menu_visibility.iter_mut() {
                 vis.is_visible = false;
             }
+            for mut vis in game_ui_query.iter_mut() {
+                vis.is_visible = true;
+            }
             game_phase.game_started = true;
-            // No load needed
-            // TODO: Load saved game when save system exists
+            load_request.pending = true;
         }
     }
 }
@@ -355,8 +362,8 @@ pub fn resume_game_button_system(
 pub fn settings_button_system(
     mut interaction_query: Query<&Interaction, (With<SettingsButton>, Changed<Interaction>)>,
     mut menu_state: ResMut<MenuState>,
-    mut main_menu_visibility: Query<&mut Visibility, With<MainMenuRoot>>,
-    mut settings_menu_visibility: Query<&mut Visibility, With<SettingsMenuRoot>>,
+    mut main_menu_visibility: Query<&mut Visibility, (With<MainMenuRoot>, Without<SettingsMenuRoot>)>,
+    mut settings_menu_visibility: Query<&mut Visibility, (With<SettingsMenuRoot>, Without<MainMenuRoot>)>,
 ) {
     for interaction in interaction_query.iter_mut() {
         if *interaction == Interaction::Clicked {
@@ -374,8 +381,8 @@ pub fn settings_button_system(
 pub fn back_button_system(
     mut interaction_query: Query<&Interaction, (With<BackButton>, Changed<Interaction>)>,
     mut menu_state: ResMut<MenuState>,
-    mut main_menu_visibility: Query<&mut Visibility, With<MainMenuRoot>>,
-    mut settings_menu_visibility: Query<&mut Visibility, With<SettingsMenuRoot>>,
+    mut main_menu_visibility: Query<&mut Visibility, (With<MainMenuRoot>, Without<SettingsMenuRoot>)>,
+    mut settings_menu_visibility: Query<&mut Visibility, (With<SettingsMenuRoot>, Without<MainMenuRoot>)>,
 ) {
     for interaction in interaction_query.iter_mut() {
         if *interaction == Interaction::Clicked {

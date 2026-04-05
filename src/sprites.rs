@@ -25,6 +25,7 @@ impl BuildingSpriteSet {
 }
 
 /// Pre-loaded texture handles for every visual in the game.
+#[derive(Clone)]
 pub struct SpriteAssets {
     // Heroes — walk atlases (LPC 9 cols × 4 rows, 64×64)
     pub warrior_atlas: Handle<TextureAtlas>,
@@ -200,7 +201,7 @@ fn load_building_set(asset_server: &Res<AssetServer>, folder: &str) -> BuildingS
     }
 }
 
-fn building_texture_for_tier(
+pub fn building_texture_for_tier(
     sprites: &SpriteAssets,
     building_type: BuildingType,
     tier: u32,
@@ -218,7 +219,7 @@ fn building_texture_for_tier(
     }
 }
 
-fn building_scale_for_tier(building_type: BuildingType, tier: u32) -> f32 {
+pub fn building_scale_for_tier(building_type: BuildingType, tier: u32) -> f32 {
     let base = match building_type {
         BuildingType::TownHall => 0.34,
         BuildingType::GuardTower => 0.30,
@@ -839,6 +840,108 @@ pub fn spawn_enemy_with_sprite(
         interval: 1.5,
     })
     .id()
+}
+
+/// World-based enemy spawn for the save/load system (no Commands needed).
+pub fn spawn_enemy_with_sprite_world(
+    world: &mut World,
+    sprites: &SpriteAssets,
+    enemy_type: EnemyType,
+    stats: EnemyStats,
+    position: Vec3,
+) -> Entity {
+    let use_skeleton = matches!(
+        enemy_type,
+        EnemyType::Troll | EnemyType::GoblinElite | EnemyType::BossWarlord | EnemyType::Werewolf
+    );
+
+    if use_skeleton {
+        let anim = SpriteAnimation::new_directional(9, 6.0);
+        let start_index = anim.atlas_index();
+        let (scale, tint) = match enemy_type {
+            EnemyType::Troll => (1.0, Color::rgb(0.7, 1.0, 0.7)),
+            EnemyType::GoblinElite => (0.8, Color::rgb(1.0, 0.8, 0.4)),
+            EnemyType::BossWarlord => (1.3, Color::rgb(1.0, 0.3, 0.3)),
+            EnemyType::Werewolf => (0.9, Color::rgb(0.6, 0.4, 0.8)),
+            _ => (0.7, Color::WHITE),
+        };
+
+        let anim_set = AnimationSet {
+            walk_atlas: sprites.skeleton_atlas.clone(),
+            walk_frames: 9,
+            idle_atlas: sprites.skeleton_atlas.clone(),
+            idle_frames: 9,
+            rest_atlas: sprites.skeleton_hurt_atlas.clone(),
+            rest_frames: 6,
+            attack_atlas: sprites.skeleton_attack_atlas.clone(),
+            attack_frames: 6,
+            hurt_atlas: sprites.skeleton_hurt_atlas.clone(),
+            hurt_frames: 6,
+            hurt_rows: 1,
+            current_mode: AnimMode::Walk,
+        };
+
+        return world.spawn()
+            .insert_bundle(SpriteSheetBundle {
+                texture_atlas: sprites.skeleton_atlas.clone(),
+                transform: Transform::from_translation(position).with_scale(Vec3::splat(scale)),
+                sprite: TextureAtlasSprite {
+                    index: start_index,
+                    color: tint,
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .insert(Enemy { enemy_type })
+            .insert(stats)
+            .insert(EnemyAi::default())
+            .insert(AttackCooldown { timer: 0.0, interval: 1.5 })
+            .insert(anim)
+            .insert(anim_set)
+            .id();
+    }
+
+    let entity = match enemy_type {
+        EnemyType::Goblin => world.spawn()
+            .insert_bundle(SpriteSheetBundle {
+                texture_atlas: sprites.goblin_atlas.clone(),
+                transform: Transform::from_translation(position).with_scale(Vec3::splat(1.5)),
+                sprite: TextureAtlasSprite { index: 0, ..Default::default() },
+                ..Default::default()
+            })
+            .id(),
+        EnemyType::Bandit | EnemyType::ShadowBandit => {
+            let tint = if enemy_type == EnemyType::ShadowBandit {
+                Color::rgb(0.3, 0.2, 0.4)
+            } else {
+                Color::WHITE
+            };
+            world.spawn()
+                .insert_bundle(SpriteSheetBundle {
+                    texture_atlas: sprites.bandit_atlas.clone(),
+                    transform: Transform::from_translation(position).with_scale(Vec3::splat(1.5)),
+                    sprite: TextureAtlasSprite { index: 0, color: tint, ..Default::default() },
+                    ..Default::default()
+                })
+                .id()
+        }
+        _ => world.spawn()
+            .insert_bundle(SpriteSheetBundle {
+                texture_atlas: sprites.goblin_atlas.clone(),
+                transform: Transform::from_translation(position).with_scale(Vec3::splat(1.5)),
+                sprite: TextureAtlasSprite { index: 0, ..Default::default() },
+                ..Default::default()
+            })
+            .id(),
+    };
+
+    world.entity_mut(entity)
+        .insert(Enemy { enemy_type })
+        .insert(stats)
+        .insert(EnemyAi::default())
+        .insert(AttackCooldown { timer: 0.0, interval: 1.5 });
+
+    entity
 }
 
 pub fn spawn_building_with_sprite(

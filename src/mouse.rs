@@ -24,7 +24,7 @@ pub fn camera_drag_system(
     }
 
     if mouse_input.pressed(MouseButton::Right) {
-        for (mut transform, mut projection) in camera.iter_mut() {
+        for (mut transform, projection) in camera.iter_mut() {
             for ev in mouse_motion.iter() {
                 // Drag right = camera moves left (pan follows cursor)
                 transform.translation.x -= ev.delta.x * projection.scale;
@@ -139,9 +139,8 @@ pub fn expand_button_click(
     mut alerts: ResMut<GameAlerts>,
     game_phase: Res<GamePhase>,
     mut commands: Commands,
-    sprites: Res<SpriteAssets>,
-    mut fog_tiles: Query<(Entity, &Transform), With<FogTile>>,
-    mut commands_events: ResMut<crate::components::KingdomState>,  // just for mutation
+    _sprites: Res<SpriteAssets>,
+    fog_tiles: Query<(Entity, &Transform), With<FogTile>>,
 ) {
     for interaction in expand_btn.iter() {
         if matches!(interaction, Interaction::Clicked) {
@@ -207,7 +206,7 @@ pub fn expand_button_click(
 
             alerts.push(format!(
                 "Map expanded! New zone revealed. Spawned {} den for {:.0}g",
-                den_type.name(), cost
+                den_type.display_name(), cost
             ));
         }
     }
@@ -249,7 +248,7 @@ pub fn map_click_system(
     mut selected_building: ResMut<SelectedBuilding>,
     mut commands: Commands,
     highlights: Query<(Entity, &BuildingHighlight)>,
-    mut economy: ResMut<GameEconomy>,
+    _economy: ResMut<GameEconomy>,
 ) {
     if !mouse_input.just_pressed(MouseButton::Left) {
         return;
@@ -301,7 +300,7 @@ pub fn map_click_system(
         for (_e, enemy, enemy_stats, t) in enemies.iter() {
             let pos = Vec2::new(t.translation.x, t.translation.y);
             if (pos - world).length() < 25.0 {
-                let threat_str = match enemy.threat_level {
+                let threat_str = match enemy_stats.threat_level {
                     0..=2 => "Minor",
                     3..=4 => "Moderate",
                     5..=7 => "Severe",
@@ -309,9 +308,9 @@ pub fn map_click_system(
                 };
                 alerts.push(format!(
                     "{} | HP:{:.0}/{:.0} ATK:{:.0} DEF:{:.0} | Threat: {} ({})",
-                    enemy.enemy_type.name(), enemy_stats.hp, enemy_stats.max_hp,
+                    enemy.enemy_type.display_name(), enemy_stats.hp, enemy_stats.max_hp,
                     enemy_stats.attack, enemy_stats.defense,
-                    enemy.threat_level, threat_str
+                    enemy_stats.threat_level, threat_str
                 ));
                 return;
             }

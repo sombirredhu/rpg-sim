@@ -20,6 +20,8 @@ mod camera;
 mod features;
 mod mouse;
 mod menu;
+mod debug;
+mod save;
 
 use bevy::prelude::*;
 use components::*;
@@ -54,6 +56,12 @@ fn main() {
         .insert_resource(components::SelectedBuilding::default())
         .insert_resource(ClearColor(Color::rgb(0.18, 0.32, 0.15)))
         .insert_resource(menu::MenuState::default())
+        .insert_resource(debug::DebugConsole::default())
+        .insert_resource(debug::DebugCommandHistory::default())
+        .insert_resource(save::AutoSaveTimer::default())
+        .insert_resource(save::LoadRequest::default())
+        
+        
         // Events
         .add_event::<BountyCompletedEvent>()
         .add_event::<HeroDeathEvent>()
@@ -81,6 +89,7 @@ fn main() {
         .add_startup_system_to_stage(StartupStage::PostStartup, day_night::spawn_night_overlay)
         .add_startup_system_to_stage(StartupStage::PostStartup, features::spawn_resource_nodes)
         .add_startup_system_to_stage(StartupStage::PostStartup, features::spawn_fog_of_war)
+        .add_startup_system_to_stage(StartupStage::PostStartup, debug::setup_debug_console)
         // Game logic systems
         // Menu systems
         .add_system(menu::menu_button_hover_system)
@@ -175,6 +184,14 @@ fn main() {
         .add_system(ui::update_bounty_board_ui)
         .add_system(ui::build_menu_system)
         .add_system(ui::manual_bounty_system)
+        // Debug console
+        .add_system(debug::debug_console_input)
+        .add_system(debug::debug_command_executor)
+        .add_system(debug::debug_console_ui_update)
+        // Save/Load systems (exclusive — take &mut World)
+        .add_system(save::auto_save_system.exclusive_system())
+        .add_system(save::quick_save_system.exclusive_system())
+        .add_system(save::load_game_system.exclusive_system())
         .run();
 }
 

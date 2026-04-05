@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
 // ============================================================
 // UI INTERACTION COMPONENTS — Marker components for mouse interaction
@@ -53,7 +54,7 @@ pub struct RoadToolActive(pub bool);
 // ============================================================
 
 /// The five hero classes from the GDD
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum HeroClass {
     Warrior, // Front-line tank, melee
     Archer,  // Ranged DPS
@@ -139,7 +140,7 @@ impl HeroClass {
     }
 }
 
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Serialize, Deserialize)]
 pub struct HeroStats {
     pub max_hp: f32,
     pub hp: f32,
@@ -152,7 +153,7 @@ pub struct HeroStats {
     pub fortify_reduction: f32,
 }
 
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Serialize, Deserialize)]
 pub struct Hero {
     pub class: HeroClass,
     pub level: u32,
@@ -180,7 +181,7 @@ impl Hero {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum HeroPersonality {
     Brave,     // Ignores danger penalties
     Cautious,  // Demands higher pay
@@ -231,7 +232,7 @@ impl Default for HeroDecisionTimer {
 // BUILDING COMPONENTS
 // ============================================================
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum BuildingType {
     TownHall,
     Inn,
@@ -327,7 +328,7 @@ impl BuildingType {
     }
 }
 
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Serialize, Deserialize)]
 pub struct Building {
     pub building_type: BuildingType,
     pub tier: u32,        // 0 = base, 1, 2, 3
@@ -364,7 +365,7 @@ pub struct BuildingVisualTier {
 // ENEMY COMPONENTS
 // ============================================================
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EnemyType {
     Goblin,
     Bandit,
@@ -487,7 +488,7 @@ impl EnemyType {
     }
 }
 
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Serialize, Deserialize)]
 pub struct EnemyStats {
     pub max_hp: f32,
     pub hp: f32,
@@ -505,7 +506,7 @@ pub struct Enemy {
     pub enemy_type: EnemyType,
 }
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize)]
 pub struct EnemyAi {
     pub target: Option<Entity>,
     pub wander_angle: f32,
@@ -523,7 +524,7 @@ impl Default for EnemyAi {
 }
 
 /// Monster den / spawn point — can be destroyed by heroes
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize)]
 pub struct MonsterDen {
     pub enemy_type: EnemyType,
     pub spawn_timer: f32,
@@ -567,7 +568,7 @@ pub struct MonsterDenVisualTier {
 // BOUNTY COMPONENTS
 // ============================================================
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum BountyType {
     Monster,      // Kill enemy at location
     Exploration,  // Scout fog area
@@ -575,15 +576,17 @@ pub enum BountyType {
     Resource,     // Gather from node
 }
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Bounty {
     pub id: u32,
     pub bounty_type: BountyType,
     pub gold_reward: f32,
     pub location: Vec2,
+    #[serde(skip, default)]
     pub target_entity: Option<Entity>,
     pub danger_level: u32,  // 1-5
     pub is_completed: bool,
+    #[serde(skip, default)]
     pub assigned_hero: Option<Entity>,
 }
 
@@ -591,6 +594,7 @@ pub struct Bounty {
 // ECONOMY / GAME STATE RESOURCES
 // ============================================================
 
+#[derive(Serialize, Deserialize, Clone)]
 pub struct GameEconomy {
     pub gold: f32,
     pub income_per_minute: f32,
@@ -609,6 +613,7 @@ impl Default for GameEconomy {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone)]
 pub struct BountyBoard {
     pub bounties: Vec<Bounty>,
     pub next_id: u32,
@@ -691,7 +696,7 @@ impl BountyBoard {
 // DAY/NIGHT CYCLE
 // ============================================================
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum TimeOfDay {
     Dawn,
     Day,
@@ -699,6 +704,7 @@ pub enum TimeOfDay {
     Night,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
 pub struct GameTime {
     pub time_seconds: f32,     // Total elapsed game-time seconds
     pub day_length: f32,       // Seconds per full day (480 = 8 minutes)
@@ -751,7 +757,7 @@ impl GameTime {
 // KINGDOM PROGRESSION
 // ============================================================
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum KingdomRank {
     Hamlet,   // Rank 1
     Village,  // Rank 2
@@ -811,6 +817,7 @@ impl KingdomRank {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone)]
 pub struct KingdomState {
     pub rank: KingdomRank,
     pub era: u32,
@@ -954,6 +961,7 @@ pub struct HeroSpawnEvent {
 // GAME PHASE
 // ============================================================
 
+#[derive(Serialize, Deserialize, Clone)]
 pub struct GamePhase {
     pub build_mode: bool,
     pub selected_building: Option<BuildingType>,
@@ -982,6 +990,7 @@ impl Default for GamePhase {
 // GAME ALERTS
 // ============================================================
 
+#[derive(Serialize, Deserialize, Clone)]
 pub struct GameAlerts {
     pub messages: Vec<(String, f32)>, // (message, time_remaining)
 }
@@ -1012,6 +1021,7 @@ pub struct Road;
 pub struct MapDecoration;
 
 /// Resource tracking road tile positions for speed lookups
+#[derive(Serialize, Deserialize, Clone)]
 pub struct RoadNetwork {
     pub tiles: Vec<Vec2>,
 }
@@ -1084,7 +1094,7 @@ impl RoadNetwork {
 // RESOURCE NODES
 // ============================================================
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ResourceType {
     Mine,
     LumberMill,
@@ -1106,7 +1116,7 @@ impl ResourceType {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize)]
 pub struct ResourceNode {
     pub resource_type: ResourceType,
     pub is_active: bool,  // Needs hero to keep it safe / gather
@@ -1127,7 +1137,7 @@ impl ResourceNode {
 // MERCHANT CARAVANS
 // ============================================================
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize)]
 pub struct Merchant {
     pub gold_value: f32,
     pub destination: Vec2,
@@ -1140,7 +1150,7 @@ pub struct Merchant {
 // ============================================================
 
 /// Rare items carried by trade caravans — provide temporary kingdom-wide buffs
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RareItem {
     EnchantedWeapons, // +5 ATK for all heroes for 2 game-days
     BlessedArmor,     // +4 DEF for all heroes for 2 game-days
@@ -1190,7 +1200,7 @@ impl RareItem {
 }
 
 /// Trade caravan spawned by Market Tier 2+ — carries a rare item for purchase
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize)]
 pub struct TradeCaravan {
     pub item: RareItem,
     pub destination: Vec2,
@@ -1199,6 +1209,7 @@ pub struct TradeCaravan {
 }
 
 /// Tracks active rare-item buffs applied to the kingdom
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ActiveBuffs {
     pub atk_bonus: f32,
     pub atk_timer: f32,
@@ -1225,6 +1236,7 @@ impl Default for ActiveBuffs {
 // FOG OF WAR
 // ============================================================
 
+#[derive(Serialize, Deserialize, Clone)]
 pub struct FogOfWar {
     pub revealed_radius: f32, // How far from town center is revealed
     pub explored_areas: Vec<Vec2>, // Additional explored locations
@@ -1248,7 +1260,7 @@ pub struct FogTile;
 // SPRITE ANIMATION
 // ============================================================
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize)]
 pub struct SpriteAnimation {
     pub frame_count: usize,
     pub frame_timer: f32,
@@ -1349,6 +1361,7 @@ impl Default for InspectTarget {
 // MILESTONES & ERA
 // ============================================================
 
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Milestones {
     pub cleared_first_den: bool,
     pub reached_village: bool,
@@ -1375,6 +1388,7 @@ impl Default for Milestones {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone)]
 pub struct LegacyUpgrades {
     pub tax_bonus_pct: f32,        // +% tax income
     pub hero_start_level: u32,     // Heroes start at this level
@@ -1397,6 +1411,7 @@ impl Default for LegacyUpgrades {
 // ERA SIEGE
 // ============================================================
 
+#[derive(Clone, Serialize, Deserialize)]
 pub struct EraState {
     pub era_length_days: u32,    // 30-60 in-game days
     pub siege_active: bool,
@@ -1419,13 +1434,13 @@ impl Default for EraState {
 // EQUIPMENT / CRAFTING
 // ============================================================
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EquipmentSlot {
     Weapon,
     Armor,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EquipmentTier {
     Iron,     // Blacksmith tier 0
     Steel,    // Blacksmith tier 1
@@ -1463,7 +1478,7 @@ impl EquipmentTier {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Equipment {
     pub slot: EquipmentSlot,
     pub tier: EquipmentTier,
@@ -1502,7 +1517,7 @@ impl Equipment {
 }
 
 /// Component attached to heroes tracking their equipment
-#[derive(Component, Debug, Clone, Default)]
+#[derive(Component, Debug, Clone, Default, Serialize, Deserialize)]
 pub struct HeroEquipment {
     pub weapon: Option<Equipment>,
     pub armor: Option<Equipment>,
@@ -1549,6 +1564,7 @@ impl HeroEquipment {
 // ============================================================
 
 /// Tracks active tier-2/3 building bonuses applied globally
+#[derive(Clone, Serialize, Deserialize)]
 pub struct BuildingBonuses {
     pub inn_heal_speed: f32,           // Multiplier (1.0 = normal, 1.5 = tier 1)
     pub market_trade_bonus: f32,       // Extra gold from merchants
