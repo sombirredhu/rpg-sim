@@ -23,6 +23,7 @@ mod menu;
 mod debug;
 mod save;
 mod map_layout;
+mod noise_map;
 
 use bevy::prelude::*;
 use components::*;
@@ -55,6 +56,7 @@ fn main() {
         .insert_resource(FogOfWar::default())
         .insert_resource(InspectTarget::default())
         .insert_resource(components::SelectedBuilding::default())
+        .insert_resource(components::SelectedBuildingInfo::default())
         .insert_resource(ClearColor(Color::rgb(0.18, 0.32, 0.15)))
         .insert_resource(menu::MenuState::default())
         .insert_resource(debug::DebugConsole::default())
@@ -185,6 +187,8 @@ fn main() {
         .add_system(ui::update_speed_ui)
         .add_system(ui::update_alerts_ui)
         .add_system(ui::update_bounty_board_ui)
+        .add_system(ui::update_building_menu_ui)
+        .add_system(ui::update_building_info_ui)
         .add_system(ui::build_menu_system)
         .add_system(ui::manual_bounty_system)
         // Debug console

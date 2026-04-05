@@ -39,11 +39,33 @@ pub struct RoadToolButton;
 #[derive(Component)]
 pub struct BuildingHighlight;
 
-/// Resource tracking which building entity is currently selected on the map
+/// Resource tracking which building entity is currently selected on the map (for placement/upgrade)
 #[derive(Default)]
 pub struct SelectedBuilding {
     pub entity: Option<Entity>,
 }
+
+/// Resource tracking which building entity is currently selected for info display
+#[derive(Default)]
+pub struct SelectedBuildingInfo {
+    pub entity: Option<Entity>,
+}
+
+/// Root node of the building menu panel
+#[derive(Component)]
+pub struct BuildingMenuUi;
+
+/// Text content of the building menu panel
+#[derive(Component)]
+pub struct BuildingMenuText;
+
+/// Root node of the building info panel
+#[derive(Component)]
+pub struct BuildingInfoUi;
+
+/// Text content of the building info panel
+#[derive(Component)]
+pub struct BuildingInfoText;
 
 /// Resource tracking whether the road tool is currently active (click-paint mode)
 #[derive(Default)]

@@ -6,6 +6,7 @@
 use bevy::prelude::*;
 
 use crate::components::*;
+use crate::noise_map::{generate_terrain_noise, apply_core_zones, tile_to_world, NoiseTerrain};
 
 #[derive(Clone)]
 pub struct BuildingSpriteSet {
@@ -1008,58 +1009,46 @@ pub fn sync_monster_den_tier_visuals(
 }
 
 pub fn spawn_ground_tiles(mut commands: Commands, sprites: Res<SpriteAssets>) {
-    use crate::map_layout::{CORE_ZONES, ZoneTerrain};
+    use crate::map_layout::{TILE_SIZE, GRID_W, GRID_H};
 
-    // Tile the grassland base in a 4×4 grid for the larger 3000×3000 map.
-    // grassland.png is ~512×512, scale for ~1000 world units per tile.
-    let tile_world_size = 1000.0;
-    for gx in -1..=2 {
-        for gy in -1..=2 {
-            commands.spawn_bundle(SpriteBundle {
-                texture: sprites.grassland_tex.clone(),
-                transform: Transform::from_translation(Vec3::new(
-                    gx as f32 * tile_world_size,
-                    gy as f32 * tile_world_size,
-                    0.0,
-                )).with_scale(Vec3::splat(2.0)),
-                ..Default::default()
-            });
-        }
-    }
+    // Calculate map dimensions in tiles
+    let map_width = GRID_W;
+    let map_height = GRID_H;
 
-    // Per-zone terrain overlays: darker green for forests, brown dirt for mines/quarries.
-    for zone in CORE_ZONES {
-        let center = zone.center();
-        let count = match zone.terrain {
-            ZoneTerrain::ForestGrass => 6,
-            ZoneTerrain::RockyDirt => 5,
-            ZoneTerrain::CleanGrass => 0,
-        };
-        for _ in 0..count {
-            let angle = rand::random::<f32>() * std::f32::consts::TAU;
-            let radius = rand::random::<f32>() * zone.radius * 0.7;
-            let pos = center + Vec2::new(angle.cos() * radius, angle.sin() * radius);
-            let size = 80.0 + rand::random::<f32>() * 80.0;
-            let (color, tex) = match zone.terrain {
-                ZoneTerrain::ForestGrass => (
-                    Color::rgba(0.65, 0.72, 0.45, 0.35),
-                    sprites.grass_overcast_tex.clone(),
-                ),
-                ZoneTerrain::RockyDirt => (
-                    Color::rgba(0.55, 0.48, 0.38, 0.4),
-                    sprites.bark_overlay_tex.clone(),
-                ),
-                _ => unreachable!(),
+    // Generate noise-based terrain
+    let mut terrain_map = generate_terrain_noise(
+        map_width,
+        map_height,
+        0.05,  // scale
+        4,     // octaves
+        0.5,   // persistence
+        2.0,   // lacunarity
+        42,    // seed
+    );
+
+    // Apply core zones to preserve important landmarks
+    apply_core_zones(&mut terrain_map, -(map_width as isize / 2), -(map_height as isize / 2));
+
+    // Spawn tiles based on noise-generated terrain
+    for x in 0..map_width {
+        for y in 0..map_height {
+            let world_pos = tile_to_world(x, y, -(map_width as f32 * TILE_SIZE / 2.0), -(map_height as f32 * TILE_SIZE / 2.0));
+
+            // Choose texture based on terrain type
+            let texture = match terrain_map[x][y] {
+                NoiseTerrain::Water => sprites.water_tile_tex.clone(),
+                NoiseTerrain::Forest => sprites.grass_overcast_tex.clone(),
+                NoiseTerrain::Grass => sprites.grassland_tex.clone(),
+                NoiseTerrain::Rocky => sprites.rock_tile_tex.clone(),
             };
+
             commands.spawn_bundle(SpriteBundle {
-                texture: tex,
-                sprite: Sprite {
-                    color,
-                    custom_size: Some(Vec2::splat(size)),
-                    ..Default::default()
-                },
-                transform: Transform::from_translation(Vec3::new(pos.x, pos.y, 0.05))
-                    .with_rotation(Quat::from_rotation_z(rand::random::<f32>() * std::f32::consts::TAU)),
+                texture: texture,
+                transform: Transform::from_translation(Vec3::new(
+                    world_pos.x,
+                    world_pos.y,
+                    0.0,
+                )).with_scale(Vec3::splat(TILE_SIZE / 32.0)),  // Adjust scale for 32px base texture
                 ..Default::default()
             });
         }
@@ -1073,6 +1062,7 @@ pub fn spawn_terrain_overlays(mut commands: Commands, sprites: Res<SpriteAssets>
         RIVER_SEGMENTS, RIVER_OVERLAY_SIZE, RIVER_STEP,
         RUIN_POSITIONS, CORE_MONSTER_DENS, RuinType,
     };
+    use crate::noise_map::{NoiseTerrain, generate_terrain_noise, apply_core_zones, tile_to_world, world_to_tile};
 
     // Spawn a semi-transparent terrain overlay sprite.
     let spawn_overlay = |commands: &mut Commands, tex: Handle<Image>, pos: Vec2,

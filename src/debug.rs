@@ -288,7 +288,7 @@ pub fn debug_console_input(
 
 fn update_input_text(mut query: Query<&mut Text, With<DebugConsoleInput>>, input: &str) {
     if let Ok(mut text) = query.get_single_mut() {
-        text.sections[0].value = format!("{}\u{25AE}", input);
+        text.sections[1].value = format!("{}\u{25AE}", input);
     }
 }
 
@@ -298,7 +298,7 @@ fn refresh_input_display(
 ) {
     let cursor = if dc.cursor_visible { "\u{25AE}" } else { " " };
     if let Ok(mut text) = query.get_single_mut() {
-        text.sections[0].value = format!("{}{}", dc.input_buffer, cursor);
+        text.sections[1].value = format!("{}{}", dc.input_buffer, cursor);
     }
 }
 
@@ -354,11 +354,11 @@ pub fn debug_command_executor(
     // Borrow checker: take output temporarily, put it back at end
     let output = std::mem::take(&mut debug_console.output);
     let dc = &mut DebugConsole {
-        active: false,
-        input_buffer: String::new(),
+        active: debug_console.active,
+        input_buffer: debug_console.input_buffer.clone(),
         output,
-        cursor_visible: false,
-        cursor_timer: 0.0,
+        cursor_visible: debug_console.cursor_visible,
+        cursor_timer: debug_console.cursor_timer,
         pending_command: String::new(),
     };
 

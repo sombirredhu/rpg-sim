@@ -459,6 +459,76 @@ pub fn setup_ui(
                 .insert(AlertText);
             });
 
+            // ===== BUILDING MENU PANEL (left side, below bounty board) =====
+            parent.spawn_bundle(NodeBundle {
+                style: Style {
+                    size: Size::new(Val::Px(200.0), Val::Auto),
+                    position_type: PositionType::Absolute,
+                    position: Rect {
+                        left: Val::Px(5.0),
+                        top: Val::Px(320.0), // Below bounty board
+                        ..Default::default()
+                    },
+                    padding: Rect::all(Val::Px(8.0)),
+                    flex_direction: FlexDirection::ColumnReverse,
+                    ..Default::default()
+                },
+                color: UiColor(Color::rgba(0.0, 0.0, 0.0, 0.75)),
+                visibility: Visibility { is_visible: false },
+                ..Default::default()
+            })
+            .insert(BuildingMenuUi)
+            .with_children(|panel| {
+                panel.spawn_bundle(TextBundle {
+                    text: Text::with_section(
+                        "",
+                        TextStyle {
+                            font: font.clone(),
+                            font_size: 14.0,
+                            color: Color::rgb(0.9, 0.9, 0.85),
+                        },
+                        TextAlignment::default(),
+                    ),
+                    ..Default::default()
+                })
+                .insert(BuildingMenuText);
+            });
+
+            // ===== BUILDING INFO PANEL (right side, below hero panel) =====
+            parent.spawn_bundle(NodeBundle {
+                style: Style {
+                    size: Size::new(Val::Px(220.0), Val::Auto),
+                    position_type: PositionType::Absolute,
+                    position: Rect {
+                        right: Val::Px(5.0),
+                        top: Val::Px(320.0), // Below hero panel
+                        ..Default::default()
+                    },
+                    padding: Rect::all(Val::Px(8.0)),
+                    flex_direction: FlexDirection::ColumnReverse,
+                    ..Default::default()
+                },
+                color: UiColor(Color::rgba(0.0, 0.0, 0.0, 0.6)),
+                visibility: Visibility { is_visible: false },
+                ..Default::default()
+            })
+            .insert(BuildingInfoUi)
+            .with_children(|panel| {
+                panel.spawn_bundle(TextBundle {
+                    text: Text::with_section(
+                        "",
+                        TextStyle {
+                            font: font.clone(),
+                            font_size: 14.0,
+                            color: Color::WHITE,
+                        },
+                        TextAlignment::default(),
+                    ),
+                    ..Default::default()
+                })
+                .insert(BuildingInfoText);
+            });
+
             // ===== BOTTOM BAR (controls help) =====
             parent.spawn_bundle(NodeBundle {
                 style: Style {
@@ -744,6 +814,104 @@ pub fn update_bounty_board_ui(
 
     for mut text in text_query.iter_mut() {
         text.sections[0].value = info.clone();
+    }
+}
+
+/// System: Update building menu panel visibility and content
+pub fn update_building_menu_ui(
+    game_phase: Res<GamePhase>,
+    kingdom: Res<KingdomState>,
+    mut panel_query: Query<&mut Visibility, With<BuildingMenuUi>>,
+    mut text_query: Query<&mut Text, With<BuildingMenuText>>,
+    mut alerts: ResMut<GameAlerts>,
+) {
+    // Toggle panel visibility
+    for mut vis in panel_query.iter_mut() {
+        vis.is_visible = game_phase.show_build_menu;
+    }
+
+    if !game_phase.show_build_menu {
+        for mut text in text_query.iter_mut() {
+            text.sections[0].value.clear();
+        }
+        return;
+    }
+
+    // Build building menu text
+    let available = kingdom.rank.available_buildings();
+    let mut info = String::from("=== BUILD MENU ===\n\n");
+
+    for (i, bt) in available.iter().enumerate() {
+        info.push_str(&format!(
+            " {}: {} ({:.0}g)\n",
+            i + 1, bt.display_name(), bt.cost()
+        ));
+    }
+    info.push_str("\nClick to select, Right-click or ESC to cancel");
+
+    for mut text in text_query.iter_mut() {
+        text.sections[0].value = info.clone();
+    }
+}
+
+/// System: Update building info panel content (visibility handled by mouse system)
+pub fn update_building_info_ui(
+    selected_building_info: Res<SelectedBuildingInfo>,
+    buildings: Query<(&Building, &Transform)>,
+    mut text_query: Query<&mut Text, With<BuildingInfoText>>,
+) {
+    // Always update text for the selected building (if any)
+    if let Some(entity) = selected_building_info.entity {
+        if let Ok((building, _transform)) = buildings.get(entity) {
+            let mut info = String::new();
+            info.push_str(&format!("{} Info\n", building.building_type.display_name()));
+            info.push_str(&format!("Tier: {}\n", building.tier));
+            info.push_str(&format!("HP: {:.0}/{:.0}\n", building.hp, building.max_hp));
+            info.push_str(&format!("Tax Income: {:.1}/min\n", building.building_type.tax_income(building.tier)));
+
+            // Add specific info based on building type
+            match building.building_type {
+                BuildingType::GuardTower => {
+                    let range = 150.0 + building.tier as f32 * 50.0;
+                    let damage = 15.0 + building.tier as f32 * 10.0;
+                    info.push_str(&format!("Attack Range: {:.0}\n", range));
+                    info.push_str(&format!("Attack Damage: {:.0}\n", damage));
+                }
+                BuildingType::WizardTower => {
+                    info.push_str(&format!("Spell Power: {:.0}\n", 20.0 + building.tier as f32 * 15.0));
+                }
+                BuildingType::Blacksmith => {
+                    info.push_str(&format!("Weapon Quality: {}\n", ["Basic", "Iron", "Steel", "Magic"][building.tier as usize]));
+                    info.push_str(&format!("Armor Quality: {}\n", ["Basic", "Leather", "Chain", "Plate"][building.tier as usize]));
+                }
+                BuildingType::Alchemist => {
+                    info.push_str(&format!("Potion Variety: {}\n", ["Basic", "Common", "Uncommon", "Rare"][building.tier as usize]));
+                }
+                BuildingType::Barracks => {
+                    info.push_str(&format!("Training Speed: {}\n", ["Slow", "Normal", "Fast", "Elite"][building.tier as usize]));
+                    info.push_str(&format!("Unit Capacity: {}\n", [5, 10, 15, 20][building.tier as usize]));
+                }
+                BuildingType::TownHall => {
+                    info.push_str(&format!("Kingdom Control Center\n"));
+                }
+                BuildingType::Inn => {
+                    info.push_str(&format!("Hero Rest & Recovery\n"));
+                    info.push_str(&format!("Attracts: Warriors, Rogues\n"));
+                }
+                BuildingType::Market => {
+                    info.push_str(&format!("Trade & Commerce\n"));
+                    info.push_str(&format!("Attracts: Rogues\n"));
+                }
+                BuildingType::Temple => {
+                    info.push_str(&format!("Healing & Blessings\n"));
+                    info.push_str(&format!("Attracts: Healers\n"));
+                }
+            }
+
+            for mut text in text_query.iter_mut() {
+                text.sections[0].value = info.clone();
+            }
+        }
     }
 }
 

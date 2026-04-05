@@ -16,7 +16,7 @@ pub fn camera_drag_system(
     mouse_input: Res<Input<MouseButton>>,
     mut mouse_motion: EventReader<bevy::input::mouse::MouseMotion>,
     mut camera: Query<(&mut Transform, &mut OrthographicProjection), With<MainCamera>>,
-    game_phase: Res<GamePhase>,
+    mut game_phase: ResMut<GamePhase>,
 ) {
     if !game_phase.game_started || game_phase.build_mode || game_phase.show_build_menu || game_phase.bounty_board_open {
         for _ in mouse_motion.iter() {}
@@ -43,7 +43,7 @@ pub fn camera_drag_system(
 pub fn speed_button_click(
     speed_btn: Query<&Interaction, With<SpeedButton>>,
     mut game_time: ResMut<GameTime>,
-    game_phase: Res<GamePhase>,
+    mut game_phase: ResMut<GamePhase>,
     mut alerts: ResMut<GameAlerts>,
 ) {
     if !game_phase.game_started { return; }
@@ -248,16 +248,65 @@ pub fn map_click_system(
     mouse_input: Res<Input<MouseButton>>,
     windows: Res<Windows>,
     camera: Query<(&Camera, &Transform, &OrthographicProjection), With<MainCamera>>,
-    game_phase: Res<GamePhase>,
+    mut game_phase: ResMut<GamePhase>,
+    kingdom: Res<KingdomState>,
     heroes: Query<(Entity, &Hero, &HeroStats, &HeroEquipment, &HeroState, &Transform), Without<Building>>,
     buildings: Query<(Entity, &Building, &Transform), Without<Hero>>,
     enemies: Query<(Entity, &Enemy, &EnemyStats, &Transform), (Without<Hero>, Without<Building>)>,
     mut alerts: ResMut<GameAlerts>,
     mut selected_building: ResMut<SelectedBuilding>,
+    mut selected_building_info: ResMut<SelectedBuildingInfo>,
     mut commands: Commands,
     highlights: Query<(Entity, &BuildingHighlight)>,
+    mut building_info_ui: Query<&mut Visibility, With<BuildingInfoUi>>,
     _economy: ResMut<GameEconomy>,
 ) {
+    // Handle right-click for building info
+    if mouse_input.just_pressed(MouseButton::Right) {
+        if !game_phase.game_started {
+            return;
+        }
+
+        // Don't show info if in build mode or menus open
+        if game_phase.build_mode || game_phase.show_build_menu || game_phase.bounty_board_open {
+            return;
+        }
+
+        let window = match windows.get_primary() {
+            Some(w) => w,
+            None => return,
+        };
+        if let Ok((_cam, cam_t, projection)) = camera.get_single() {
+            let world = match cursor_to_world_2d(window, cam_t, projection) {
+                Some(pos) => pos,
+                None => return,
+            };
+
+            // Check buildings for info panel
+            for (entity, building, t) in buildings.iter() {
+                let pos = Vec2::new(t.translation.x, t.translation.y);
+                if (pos - world).length() < 50.0 {
+                    // Show building info panel
+                    selected_building_info.entity = Some(entity);
+
+                    // Show the building info UI
+                    for mut vis in building_info_ui.iter_mut() {
+                        vis.is_visible = true;
+                    }
+                    return;
+                }
+            }
+
+            // Clicked on empty space - hide info panel
+            selected_building_info.entity = None;
+            for mut vis in building_info_ui.iter_mut() {
+                vis.is_visible = false;
+            }
+        }
+        return;
+    }
+
+    // Handle left-click for building placement/menu
     if !mouse_input.just_pressed(MouseButton::Left) {
         return;
     }
@@ -266,8 +315,49 @@ pub fn map_click_system(
         return;
     }
 
+    // Handle clicks when build menu is open
+    if game_phase.show_build_menu {
+        // Check if click is within building menu area (simplified - left side panel)
+        let window = match windows.get_primary() {
+            Some(w) => w,
+            None => return,
+        };
+        if let Ok((_cam, cam_t, projection)) = camera.get_single() {
+            let world = match cursor_to_world_2d(window, cam_t, projection) {
+                Some(pos) => pos,
+                None => return,
+            };
+
+            // Building menu is on left side, roughly x < -300
+            if world.x < -300.0 {
+                // Convert world position to approximate menu index
+                // Menu items are stacked vertically starting from y ~ 200
+                let menu_y = (world.y + 200.0) / 20.0; // Approximate item height
+                let menu_index = menu_y.floor() as usize;
+
+                let available = kingdom.rank.available_buildings();
+                if menu_index < available.len() {
+                    let selected_building_type = available[menu_index];
+                    game_phase.selected_building = Some(selected_building_type);
+                    game_phase.build_mode = true;
+                    game_phase.show_build_menu = false;
+                    game_phase.bounty_board_open = false;
+                    alerts.push(format!(
+                        "Selected {} - Click to build, Right-click to cancel",
+                        selected_building_type.display_name()
+                    ));
+                }
+                return;
+            }
+        }
+        // Click outside menu - close it
+        game_phase.show_build_menu = false;
+        alerts.push("Build menu closed".to_string());
+        return;
+    }
+
     // Don't inspect if in build mode or bounty board open — those handle their own clicks
-    if game_phase.build_mode || game_phase.bounty_board_open || game_phase.show_build_menu {
+    if game_phase.build_mode || game_phase.bounty_board_open {
         return;
     }
 
@@ -390,7 +480,7 @@ pub fn selected_building_action(
     windows: Res<Windows>,
     camera: Query<(&Camera, &Transform, &OrthographicProjection), With<MainCamera>>,
     selected_building: Res<SelectedBuilding>,
-    mut buildings: Query<(&mut Building, &Transform)>,
+    mut buildings: Query<(&mut Building, &mut Visibility, &Transform)>,
     mut economy: ResMut<GameEconomy>,
     mut alerts: ResMut<GameAlerts>,
     game_phase: Res<GamePhase>,
@@ -414,10 +504,28 @@ pub fn selected_building_action(
             None => return,
         };
 
-        if let Ok((mut building, transform)) = buildings.get_mut(entity) {
+        if let Ok((mut building, mut visibility, transform)) = buildings.get_mut(entity) {
             let pos = Vec2::new(transform.translation.x, transform.translation.y);
             if (pos - world).length() < 50.0 {
-                if building.tier < 3 && !building.is_destroyed {
+                if building.is_destroyed {
+                    // Repair destroyed building
+                    let repair_cost = building.building_type.cost() * 0.5;
+                    if economy.gold >= repair_cost {
+                        economy.gold -= repair_cost;
+                        economy.total_spent += repair_cost;
+                        building.is_destroyed = false;
+                        building.hp = building.max_hp * 0.5;
+                        visibility.is_visible = true; // Show building immediately when repaired
+                        alerts.push(format!(
+                            "{} repaired for {:.0} gold!",
+                            building.building_type.display_name(),
+                            repair_cost
+                        ));
+                    } else {
+                        alerts.push(format!("Need {:.0} gold to repair!", repair_cost));
+                    }
+                } else if building.tier < 3 && !building.is_destroyed {
+                    // Upgrade building
                     let cost = building.building_type.upgrade_cost(building.tier + 1);
                     if economy.gold >= cost {
                         economy.gold -= cost;
