@@ -330,6 +330,7 @@ pub fn setup_ui(
                 color: UiColor(Color::rgba(0.0, 0.0, 0.0, 0.6)),
                 ..Default::default()
             })
+            .insert(HeroPanelUi)
             .with_children(|panel| {
                 panel.spawn_bundle(TextBundle {
                     text: Text::with_section(
@@ -536,9 +537,17 @@ pub fn update_day_night_ui(
 
 /// System: Update hero panel
 pub fn update_hero_panel_ui(
+    game_phase: Res<GamePhase>,
     heroes: Query<(&Hero, &HeroStats, &HeroState)>,
     mut text_query: Query<&mut Text, With<HeroPanelText>>,
+    mut panel_visibility: Query<&mut Visibility, With<HeroPanelUi>>,
 ) {
+    for mut vis in panel_visibility.iter_mut() {
+        vis.is_visible = game_phase.hero_panel_open;
+    }
+    if !game_phase.hero_panel_open {
+        return;
+    }
     let mut info = String::new();
     let mut count = 0;
     let mut class_counts = [0u32; 5];
@@ -831,6 +840,16 @@ pub fn build_menu_system(
             game_phase.manual_bounty_amount = (game_phase.manual_bounty_amount - step).max(10.0);
             alerts.push(format!("Bounty amount: {:.0}g", game_phase.manual_bounty_amount));
         }
+    }
+
+    // Toggle hero panel with H
+    if keyboard.just_pressed(KeyCode::H) && game_phase.game_started {
+        game_phase.hero_panel_open = !game_phase.hero_panel_open;
+        alerts.push(if game_phase.hero_panel_open {
+            "Hero panel OPEN".to_string()
+        } else {
+            "Hero panel CLOSED".to_string()
+        });
     }
 }
 

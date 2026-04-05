@@ -130,7 +130,7 @@
 - [ ] Floating action button for Bounty Board
 - [ ] Visual Bounty Board panel with categorized bounty list
 - [ ] Sun/moon arc day/night indicator
-- [ ] Hero panel collapse/expand toggle
+- [x] Hero panel collapse/expand toggle (H key)
 
 ## 9. Session Design (GDD Section 9.3)
 - [x] Speed toggle (1x, 2x, 3x)
