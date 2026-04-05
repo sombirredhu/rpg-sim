@@ -1273,9 +1273,11 @@ pub fn spawn_trees(mut commands: Commands, sprites: Res<SpriteAssets>) {
     }
 }
 
-/// Spawn map decorations: trees, bushes, flowers, mushrooms, and stone monuments.
+
+/// Spawn map decorations anchored to zones rather than randomly scattered.
 pub fn spawn_map_decorations(mut commands: Commands, sprites: Res<SpriteAssets>) {
     use std::f32::consts::TAU;
+    use crate::map_layout::{CORE_ZONES, ZoneTerrain, RIVER_SEGMENTS, CORE_MONSTER_DENS};
 
     let spawn_deco = |commands: &mut Commands, tex: Handle<Image>, pos: Vec2, z: f32, scale: f32| {
         commands
@@ -1288,209 +1290,21 @@ pub fn spawn_map_decorations(mut commands: Commands, sprites: Res<SpriteAssets>)
             .insert(MapDecoration);
     };
 
-    let rand_pos = |min_r: f32, max_r: f32| -> Vec2 {
+    let around = |cx: f32, cy: f32, min_r: f32, max_r: f32| -> Vec2 {
         let angle = rand::random::<f32>() * TAU;
         let radius = min_r + rand::random::<f32>() * (max_r - min_r);
-        Vec2::new(angle.cos() * radius, angle.sin() * radius)
+        Vec2::new(cx + angle.cos() * radius, cy + angle.sin() * radius)
     };
 
-    // === Big leafy trees — increased density, mid/outer rings ===
-    let big_tree_tex = [
-        sprites.deco_tree_big1.clone(),
-        sprites.deco_tree_big2.clone(),
-        sprites.deco_tree_oak1.clone(),
-        sprites.deco_tree_oak2.clone(),
-    ];
-    // Spawn as clusters for forest feel
-    for _ in 0..12 {
-        let center = rand_pos(200.0, 900.0);
-        let count = 2 + rand::random::<usize>() % 3; // 2-4 trees per cluster
-        for _ in 0..count {
-            let offset = Vec2::new(
-                (rand::random::<f32>() - 0.5) * 50.0,
-                (rand::random::<f32>() - 0.5) * 50.0,
-            );
-            let pos = center + offset;
-            let idx = rand::random::<usize>() % big_tree_tex.len();
-            let scale = 1.0 + rand::random::<f32>() * 0.6;
-            spawn_deco(&mut commands, big_tree_tex[idx].clone(), pos, 4.0, scale);
-        }
-    }
-
-    // === Pine trees — outer ring with more variety (6 variants) ===
-    let pine_tex = [
-        sprites.deco_pine1.clone(), sprites.deco_pine2.clone(),
-        sprites.deco_pine3.clone(), sprites.deco_pine4.clone(),
-        sprites.deco_pine5.clone(), sprites.deco_pine6.clone(),
-    ];
-    for _ in 0..10 {
-        let center = rand_pos(400.0, 1300.0);
-        let count = 2 + rand::random::<usize>() % 4; // 2-5 per cluster
-        for _ in 0..count {
-            let offset = Vec2::new(
-                (rand::random::<f32>() - 0.5) * 40.0,
-                (rand::random::<f32>() - 0.5) * 40.0,
-            );
-            let pos = center + offset;
-            let idx = rand::random::<usize>() % pine_tex.len();
-            let scale = 0.8 + rand::random::<f32>() * 0.6;
-            spawn_deco(&mut commands, pine_tex[idx].clone(), pos, 4.0, scale);
-        }
-    }
-
-    // === Dead/bare trees — far outer ring for wild frontier feel ===
-    let dead_tree_tex = [
-        sprites.deco_tree_dead1.clone(),
-        sprites.deco_tree_dead2.clone(),
-    ];
-    for _ in 0..15 {
-        let pos = rand_pos(600.0, 1400.0);
-        let idx = rand::random::<usize>() % dead_tree_tex.len();
-        let scale = 0.9 + rand::random::<f32>() * 0.5;
-        spawn_deco(&mut commands, dead_tree_tex[idx].clone(), pos, 3.0, scale);
-    }
-
-    // === Bushes — all rings with 6 variants (HD + plain) ===
-    let bush_tex = [
-        sprites.deco_bush1.clone(), sprites.deco_bush2.clone(),
-        sprites.deco_bush_1.clone(), sprites.deco_bush_2.clone(),
-        sprites.deco_bush_3.clone(), sprites.deco_bush_4.clone(),
-    ];
-    for _ in 0..30 {
-        let pos = rand_pos(80.0, 1100.0);
-        let idx = rand::random::<usize>() % bush_tex.len();
-        let scale = 0.7 + rand::random::<f32>() * 0.5;
-        spawn_deco(&mut commands, bush_tex[idx].clone(), pos, 2.0, scale);
-    }
-
-    // === Tree bushes (undergrowth) — inner rings ===
-    let tree_bush_tex = [
-        sprites.deco_tree_bush1.clone(),
-        sprites.deco_tree_bush2.clone(),
-        sprites.deco_tree_bush3.clone(),
-    ];
-    for _ in 0..25 {
-        let pos = rand_pos(50.0, 600.0);
-        let idx = rand::random::<usize>() % tree_bush_tex.len();
-        let scale = 0.8 + rand::random::<f32>() * 0.4;
-        spawn_deco(&mut commands, tree_bush_tex[idx].clone(), pos, 1.5, scale);
-    }
-
-    // === Flower patches — near town for color ===
-    let flower_textures = [
-        sprites.deco_flowers1.clone(),
-        sprites.deco_flowers2.clone(),
-    ];
-    for _ in 0..25 {
-        let pos = rand_pos(50.0, 500.0);
-        let idx = rand::random::<usize>() % flower_textures.len();
-        spawn_deco(&mut commands, flower_textures[idx].clone(), pos, 1.5, 0.9);
-    }
-
-    // === Mushroom clusters ===
-    for _ in 0..12 {
-        let pos = rand_pos(150.0, 800.0);
-        spawn_deco(&mut commands, sprites.deco_mushrooms.clone(), pos, 1.5, 1.0);
-    }
-
-    // === Small rocks — scattered everywhere ===
-    let small_rock_tex = [
-        sprites.deco_rock_small1.clone(),
-        sprites.deco_rock_small2.clone(),
-        sprites.deco_rock_small3.clone(),
-    ];
-    for _ in 0..40 {
-        let pos = rand_pos(100.0, 1400.0);
-        let idx = rand::random::<usize>() % small_rock_tex.len();
-        let scale = 0.6 + rand::random::<f32>() * 0.5;
-        spawn_deco(&mut commands, small_rock_tex[idx].clone(), pos, 1.0, scale);
-    }
-
-    // === Flat rocks — mid/outer ===
-    for _ in 0..12 {
-        let pos = rand_pos(200.0, 1000.0);
-        let scale = 0.7 + rand::random::<f32>() * 0.4;
-        spawn_deco(&mut commands, sprites.deco_rock_flat.clone(), pos, 0.8, scale);
-    }
-
-    // === Standing stones — landmark positions ===
-    spawn_deco(&mut commands, sprites.deco_standing_stone1.clone(), Vec2::new(320.0, 280.0), 3.0, 1.2);
-    spawn_deco(&mut commands, sprites.deco_standing_stone2.clone(), Vec2::new(-350.0, 310.0), 3.0, 1.2);
-    spawn_deco(&mut commands, sprites.deco_standing_stone1.clone(), Vec2::new(-280.0, -320.0), 3.0, 1.0);
-    spawn_deco(&mut commands, sprites.deco_standing_stone2.clone(), Vec2::new(380.0, -260.0), 3.0, 1.0);
-    spawn_deco(&mut commands, sprites.deco_standing_stone1.clone(), Vec2::new(600.0, 100.0), 3.0, 1.1);
-    spawn_deco(&mut commands, sprites.deco_standing_stone2.clone(), Vec2::new(-500.0, -200.0), 3.0, 1.1);
-
-    // === Stone circle monuments ===
-    spawn_deco(&mut commands, sprites.deco_stone_circle.clone(), Vec2::new(-380.0, 340.0), 3.5, 1.3);
-    spawn_deco(&mut commands, sprites.deco_stone_circle.clone(), Vec2::new(400.0, -380.0), 3.5, 1.3);
-    spawn_deco(&mut commands, sprites.deco_stone_circle.clone(), Vec2::new(700.0, 500.0), 3.5, 1.2);
-    spawn_deco(&mut commands, sprites.deco_stone_circle.clone(), Vec2::new(-600.0, -500.0), 3.5, 1.2);
-
-    // === Ruin arches — far ring ===
-    let ruin_arch_tex = [sprites.deco_ruin_arch1.clone(), sprites.deco_ruin_arch2.clone()];
-    for _ in 0..4 {
-        let pos = rand_pos(500.0, 1200.0);
-        let idx = rand::random::<usize>() % ruin_arch_tex.len();
-        spawn_deco(&mut commands, ruin_arch_tex[idx].clone(), pos, 3.0, 1.0 + rand::random::<f32>() * 0.3);
-    }
-
-    // === Ruin pillars — far ring ===
-    let ruin_pillar_tex = [sprites.deco_ruin_pillar1.clone(), sprites.deco_ruin_pillar2.clone()];
-    for _ in 0..5 {
-        let pos = rand_pos(500.0, 1200.0);
-        let idx = rand::random::<usize>() % ruin_pillar_tex.len();
-        spawn_deco(&mut commands, ruin_pillar_tex[idx].clone(), pos, 3.0, 0.9 + rand::random::<f32>() * 0.4);
-    }
-
-    // === Ruin walls — far ring accents ===
-    let ruin_wall_tex = [sprites.deco_ruin_wall1.clone(), sprites.deco_ruin_wall2.clone()];
-    for _ in 0..4 {
-        let pos = rand_pos(600.0, 1100.0);
-        let idx = rand::random::<usize>() % ruin_wall_tex.len();
-        spawn_deco(&mut commands, ruin_wall_tex[idx].clone(), pos, 2.5, 0.8 + rand::random::<f32>() * 0.3);
-    }
-
-    // === Temple ruin — far landmark ===
-    spawn_deco(&mut commands, sprites.deco_temple_ruin.clone(), Vec2::new(800.0, -300.0), 3.0, 1.1);
-    spawn_deco(&mut commands, sprites.deco_temple_ruin.clone(), Vec2::new(-750.0, 150.0), 3.0, 1.0);
-
-    // === Fence segments — near town area ===
+    // === Fences — near town settlement area ===
     let fence_tex = [
-        sprites.deco_fence1.clone(),
-        sprites.deco_fence2.clone(),
+        sprites.deco_fence1.clone(), sprites.deco_fence2.clone(),
         sprites.deco_fence_post.clone(),
     ];
-    for _ in 0..15 {
-        let pos = rand_pos(60.0, 200.0);
+    for _ in 0..20 {
+        let pos = around(0.0, 0.0, 100.0, 250.0);
         let idx = rand::random::<usize>() % fence_tex.len();
         spawn_deco(&mut commands, fence_tex[idx].clone(), pos, 1.0, 0.7 + rand::random::<f32>() * 0.3);
-    }
-
-    // === Stone blocks — mid ring ===
-    let stone_block_tex = [
-        sprites.deco_stone_block1.clone(),
-        sprites.deco_stone_block2.clone(),
-        sprites.deco_stone_step.clone(),
-    ];
-    for _ in 0..8 {
-        let pos = rand_pos(200.0, 800.0);
-        let idx = rand::random::<usize>() % stone_block_tex.len();
-        spawn_deco(&mut commands, stone_block_tex[idx].clone(), pos, 1.0, 0.6 + rand::random::<f32>() * 0.3);
-    }
-
-    // === Cave entrances — far ring landmarks ===
-    let cave_tex = [
-        sprites.deco_cave1.clone(),
-        sprites.deco_cave2.clone(),
-        sprites.deco_cave3.clone(),
-    ];
-    for i in 0..4 {
-        let angle = (i as f32 / 4.0) * TAU + rand::random::<f32>() * 0.5;
-        let radius = 700.0 + rand::random::<f32>() * 400.0;
-        let pos = Vec2::new(angle.cos() * radius, angle.sin() * radius);
-        let idx = rand::random::<usize>() % cave_tex.len();
-        spawn_deco(&mut commands, cave_tex[idx].clone(), pos, 4.0, 0.9 + rand::random::<f32>() * 0.3);
     }
 
     // === Cabin walls — near town, medieval settlement feel ===
@@ -1499,29 +1313,259 @@ pub fn spawn_map_decorations(mut commands: Commands, sprites: Res<SpriteAssets>)
         sprites.deco_cabin_wall2.clone(),
         sprites.deco_cabin_wall3.clone(),
     ];
-    for _ in 0..6 {
-        let pos = rand_pos(80.0, 250.0);
+    for _ in 0..8 {
+        let pos = around(0.0, 0.0, 50.0, 200.0);
         let idx = rand::random::<usize>() % cabin_wall_tex.len();
         spawn_deco(&mut commands, cabin_wall_tex[idx].clone(), pos, 1.5, 0.5 + rand::random::<f32>() * 0.3);
     }
 
-    // === Water tile decorations — near ponds ===
-    let water_tile_tex = [sprites.deco_water_tile1.clone(), sprites.deco_water_tile2.clone()];
-    for _ in 0..6 {
-        let center = [Vec2::new(500.0, 500.0), Vec2::new(-600.0, 400.0), Vec2::new(400.0, -600.0), Vec2::new(-700.0, -500.0)][rand::random::<usize>() % 4];
-        let offset = Vec2::new((rand::random::<f32>() - 0.5) * 100.0, (rand::random::<f32>() - 0.5) * 100.0);
-        spawn_deco(&mut commands, water_tile_tex[rand::random::<usize>() % 2].clone(), center + offset, 0.5, 0.6 + rand::random::<f32>() * 0.3);
+    // === Stone blocks & steps — near quarry zones ===
+    let stone_block_tex = [
+        sprites.deco_stone_block1.clone(),
+        sprites.deco_stone_block2.clone(),
+        sprites.deco_stone_step.clone(),
+    ];
+    for zone in CORE_ZONES {
+        if zone.terrain == ZoneTerrain::RockyDirt {
+            let center = zone.center();
+            for _ in 0..3 {
+                let pos = around(center.x, center.y, 20.0, zone.radius * 0.5);
+                let idx = rand::random::<usize>() % stone_block_tex.len();
+                spawn_deco(&mut commands, stone_block_tex[idx].clone(), pos, 1.0, 0.6 + rand::random::<f32>() * 0.3);
+            }
+        }
     }
 
-    // === Bridge decorations — placed near water ===
-    spawn_deco(&mut commands, sprites.deco_bridge1.clone(), Vec2::new(500.0, 580.0), 1.0, 0.8);
-    spawn_deco(&mut commands, sprites.deco_bridge1.clone(), Vec2::new(-600.0, 320.0), 1.0, 0.7);
+    // === Standing stones — landmark positions along paths/zone borders ===
+    let stone_positions = [
+        (Vec2::new(280.0, 170.0), 1.2),
+        (Vec2::new(-280.0, 170.0), 1.1),
+        (Vec2::new(200.0, -180.0), 1.0),
+        (Vec2::new(-200.0, -180.0), 1.0),
+        (Vec2::new(550.0, 50.0), 1.1),
+        (Vec2::new(-400.0, -150.0), 1.1),
+    ];
+    for (i, &(pos, scale)) in stone_positions.iter().enumerate() {
+        let tex = if i % 2 == 0 {
+            sprites.deco_standing_stone1.clone()
+        } else {
+            sprites.deco_standing_stone2.clone()
+        };
+        spawn_deco(&mut commands, tex, pos, 3.0, scale);
+    }
 
-    // === Small plants — near water and paths ===
+    // === Stone circle monuments — outer zone landmarks ===
+    spawn_deco(&mut commands, sprites.deco_stone_circle.clone(), Vec2::new(-500.0, 500.0), 3.5, 1.3);
+    spawn_deco(&mut commands, sprites.deco_stone_circle.clone(), Vec2::new(600.0, -500.0), 3.5, 1.3);
+    spawn_deco(&mut commands, sprites.deco_stone_circle.clone(), Vec2::new(800.0, 500.0), 3.5, 1.2);
+    spawn_deco(&mut commands, sprites.deco_stone_circle.clone(), Vec2::new(-700.0, -400.0), 3.5, 1.2);
+
+    // === Flower patches — near town outskirts ===
+    let flower_textures = [
+        sprites.deco_flowers1.clone(),
+        sprites.deco_flowers2.clone(),
+    ];
+    for _ in 0..20 {
+        let pos = around(0.0, 0.0, 50.0, 300.0);
+        let idx = rand::random::<usize>() % flower_textures.len();
+        spawn_deco(&mut commands, flower_textures[idx].clone(), pos, 1.5, 0.9);
+    }
+
+    // === Bushes — edges of forest zones and town outskirts ===
+    let bush_tex = [
+        sprites.deco_bush1.clone(), sprites.deco_bush2.clone(),
+        sprites.deco_bush_1.clone(), sprites.deco_bush_2.clone(),
+        sprites.deco_bush_3.clone(), sprites.deco_bush_4.clone(),
+    ];
+    for zone in CORE_ZONES {
+        let count = match zone.terrain {
+            ZoneTerrain::ForestGrass => 8,
+            ZoneTerrain::CleanGrass => 3,
+            ZoneTerrain::RockyDirt => 1,
+        };
+        let center = zone.center();
+        for _ in 0..count {
+            let pos = around(center.x, center.y, zone.radius * 0.5, zone.radius * 0.9);
+            let idx = rand::random::<usize>() % bush_tex.len();
+            spawn_deco(&mut commands, bush_tex[idx].clone(), pos, 2.0, 0.7 + rand::random::<f32>() * 0.5);
+        }
+    }
+
+    // === Tree bushes (undergrowth) — forest edges ===
+    let tree_bush_tex = [
+        sprites.deco_tree_bush1.clone(),
+        sprites.deco_tree_bush2.clone(),
+        sprites.deco_tree_bush3.clone(),
+    ];
+    for zone in CORE_ZONES {
+        if zone.terrain != ZoneTerrain::ForestGrass { continue; }
+        let center = zone.center();
+        for _ in 0..6 {
+            let pos = around(center.x, center.y, 0.0, zone.radius * 0.8);
+            let idx = rand::random::<usize>() % tree_bush_tex.len();
+            spawn_deco(&mut commands, tree_bush_tex[idx].clone(), pos, 1.5, 0.8 + rand::random::<f32>() * 0.4);
+        }
+    }
+
+    // === Mushroom clusters — dark forest edges ===
+    for zone in CORE_ZONES {
+        if zone.terrain != ZoneTerrain::ForestGrass { continue; }
+        let center = zone.center();
+        for _ in 0..4 {
+            let pos = around(center.x, center.y, zone.radius * 0.5, zone.radius * 0.8);
+            spawn_deco(&mut commands, sprites.deco_mushrooms.clone(), pos, 1.5, 1.0);
+        }
+    }
+
+    // === Small rocks — concentrated near quarry/mine, scattered outer ring ===
+    let small_rock_tex = [
+        sprites.deco_rock_small1.clone(),
+        sprites.deco_rock_small2.clone(),
+        sprites.deco_rock_small3.clone(),
+    ];
+    for zone in CORE_ZONES {
+        if zone.terrain != ZoneTerrain::RockyDirt { continue; }
+        let center = zone.center();
+        for _ in 0..6 {
+            let pos = around(center.x, center.y, 0.0, zone.radius);
+            let idx = rand::random::<usize>() % small_rock_tex.len();
+            spawn_deco(&mut commands, small_rock_tex[idx].clone(), pos, 1.0, 0.6 + rand::random::<f32>() * 0.5);
+        }
+    }
+    // Scatter some in outer ring
+    for _ in 0..25 {
+        let pos = around(0.0, 0.0, 800.0, 1400.0);
+        let idx = rand::random::<usize>() % small_rock_tex.len();
+        spawn_deco(&mut commands, small_rock_tex[idx].clone(), pos, 1.0, 0.6 + rand::random::<f32>() * 0.5);
+    }
+
+    // === Flat rocks — quarry and mine zones ===
+    for zone in CORE_ZONES {
+        if zone.terrain != ZoneTerrain::RockyDirt { continue; }
+        let center = zone.center();
+        for _ in 0..2 {
+            let pos = around(center.x, center.y, 0.0, zone.radius * 0.7);
+            spawn_deco(&mut commands, sprites.deco_rock_flat.clone(), pos, 0.8, 0.7 + rand::random::<f32>() * 0.4);
+        }
+    }
+
+    // === Dead trees — near enemy zones ===
+    let dead_tree_tex = [
+        sprites.deco_tree_dead1.clone(),
+        sprites.deco_tree_dead2.clone(),
+    ];
+    for &(dx, dy, _) in CORE_MONSTER_DENS {
+        let base = Vec2::new(dx, dy);
+        for _ in 0..3 {
+            let pos = base + Vec2::new(
+                (rand::random::<f32>() - 0.5) * 100.0,
+                (rand::random::<f32>() - 0.5) * 100.0,
+            );
+            let idx = rand::random::<usize>() % dead_tree_tex.len();
+            spawn_deco(&mut commands, dead_tree_tex[idx].clone(), pos, 3.0, 0.9 + rand::random::<f32>() * 0.5);
+        }
+    }
+
+    // === Pine trees — outer ring clusters ===
+    let pine_tex = [
+        sprites.deco_pine1.clone(), sprites.deco_pine2.clone(),
+        sprites.deco_pine3.clone(), sprites.deco_pine4.clone(),
+        sprites.deco_pine5.clone(), sprites.deco_pine6.clone(),
+    ];
+    for _ in 0..8 {
+        let center = around(0.0, 0.0, 500.0, 1200.0);
+        let count = 2 + rand::random::<usize>() % 3;
+        for _ in 0..count {
+            let pos = center + Vec2::new(
+                (rand::random::<f32>() - 0.5) * 40.0,
+                (rand::random::<f32>() - 0.5) * 40.0,
+            );
+            let idx = rand::random::<usize>() % pine_tex.len();
+            spawn_deco(&mut commands, pine_tex[idx].clone(), pos, 4.0, 0.8 + rand::random::<f32>() * 0.6);
+        }
+    }
+
+    // === Cave entrances — near monster dens ===
+    let cave_tex = [
+        sprites.deco_cave1.clone(),
+        sprites.deco_cave2.clone(),
+        sprites.deco_cave3.clone(),
+    ];
+    for &(dx, dy, _) in CORE_MONSTER_DENS {
+        let base = Vec2::new(dx, dy);
+        let offset = base + Vec2::new(
+            (rand::random::<f32>() - 0.5) * 150.0,
+            (rand::random::<f32>() - 0.5) * 150.0,
+        );
+        let idx = rand::random::<usize>() % cave_tex.len();
+        spawn_deco(&mut commands, cave_tex[idx].clone(), offset, 4.0, 0.9 + rand::random::<f32>() * 0.3);
+    }
+
+    // === Big decorative leafy trees — forest outskirts ===
+    let big_tree_tex = [
+        sprites.deco_tree_big1.clone(), sprites.deco_tree_big2.clone(),
+        sprites.deco_tree_oak1.clone(), sprites.deco_tree_oak2.clone(),
+    ];
+    for zone in CORE_ZONES {
+        if zone.terrain != ZoneTerrain::ForestGrass { continue; }
+        let center = zone.center();
+        for _ in 0..6 {
+            let pos = around(center.x, center.y, zone.radius * 0.6, zone.radius);
+            let idx = rand::random::<usize>() % big_tree_tex.len();
+            spawn_deco(&mut commands, big_tree_tex[idx].clone(), pos, 4.0, 1.0 + rand::random::<f32>() * 0.4);
+        }
+    }
+
+    // === Water tile decorations — around river and ponds ===
+    let water_tile_tex = [sprites.deco_water_tile1.clone(), sprites.deco_water_tile2.clone()];
+    for &(x1, y1, x2, y2) in RIVER_SEGMENTS {
+        if rand::random::<bool>() {
+            let mid = Vec2::new((x1 + x2) * 0.5, (y1 + y2) * 0.5);
+            let offset = mid + Vec2::new(
+                (rand::random::<f32>() - 0.5) * 60.0,
+                (rand::random::<f32>() - 0.5) * 60.0,
+            );
+            spawn_deco(
+                &mut commands,
+                water_tile_tex[rand::random::<usize>() % 2].clone(),
+                offset, 0.5, 0.6 + rand::random::<f32>() * 0.3,
+            );
+        }
+    }
+
+    let pond_positions = [
+        Vec2::new(550.0, 550.0), Vec2::new(-650.0, 450.0),
+    ];
+    for pond in &pond_positions {
+        for _ in 0..3 {
+            let pos = *pond + Vec2::new(
+                (rand::random::<f32>() - 0.5) * 100.0,
+                (rand::random::<f32>() - 0.5) * 100.0,
+            );
+            spawn_deco(
+                &mut commands,
+                water_tile_tex[rand::random::<usize>() % 2].clone(),
+                pos, 0.5, 0.6 + rand::random::<f32>() * 0.3,
+            );
+        }
+    }
+
+    // === Bridge decorations — near river crossings ===
+    spawn_deco(&mut commands, sprites.deco_bridge1.clone(), Vec2::new(-270.0, 110.0), 1.0, 0.8);
+    spawn_deco(&mut commands, sprites.deco_bridge1.clone(), Vec2::new(-70.0, -180.0), 1.0, 0.7);
+
+    // === Small plants — along river edges ===
     let plant_tex = [sprites.deco_plant1.clone(), sprites.deco_plant2.clone()];
-    for _ in 0..15 {
-        let pos = rand_pos(100.0, 900.0);
-        let idx = rand::random::<usize>() % plant_tex.len();
-        spawn_deco(&mut commands, plant_tex[idx].clone(), pos, 0.8, 0.5 + rand::random::<f32>() * 0.4);
+    for _ in 0..12 {
+        let t = rand::random::<f32>();
+        let seg_idx = (rand::random::<f32>() * RIVER_SEGMENTS.len() as f32).floor() as usize;
+        let &(x1, y1, x2, y2) = &RIVER_SEGMENTS[seg_idx];
+        let pos = Vec2::new(x1 + (x2 - x1) * t, y1 + (y2 - y1) * t)
+            + Vec2::new((rand::random::<f32>() - 0.5) * 100.0, (rand::random::<f32>() - 0.5) * 100.0);
+        spawn_deco(
+            &mut commands,
+            plant_tex[rand::random::<usize>() % plant_tex.len()].clone(),
+            pos, 0.8, 0.5 + rand::random::<f32>() * 0.4,
+        );
     }
 }

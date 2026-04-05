@@ -41,7 +41,8 @@ pub fn setup_debug_console(
     asset_server: Res<AssetServer>,
 ) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    let root = commands
+
+    commands
         .spawn_bundle(NodeBundle {
             style: Style {
                 size: Size::new(Val::Percent(100.0), Val::Px(260.0)),
@@ -55,83 +56,83 @@ pub fn setup_debug_console(
                 padding: Rect::all(Val::Px(8.0)),
                 ..Default::default()
             },
-            color: Color::BLACK.into(),
+            color: UiColor(Color::rgba(0.0, 0.0, 0.0, 0.85)),
             visibility: Visibility { is_visible: false },
             ..Default::default()
         })
         .insert(DebugConsoleRoot)
-        .id();
-
-    let output = commands
-        .spawn_bundle(NodeBundle {
-            style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Auto),
-                overflow: Overflow::Hidden,
-                flex_grow: 1.0,
-                ..Default::default()
-            },
-            ..Default::default()
-        })
         .with_children(|parent| {
-            parent.spawn_bundle(TextBundle {
-                text: Text::with_section(
-                    "",
-                    TextStyle {
-                        font_size: 13.0,
-                        color: Color::rgb(0.55, 1.0, 0.55),
-                        font: font.clone(),
+            // Output area
+            parent
+                .spawn_bundle(NodeBundle {
+                    style: Style {
+                        size: Size::new(Val::Percent(100.0), Val::Auto),
+                        overflow: Overflow::Hidden,
+                        flex_grow: 1.0,
+                        ..Default::default()
                     },
-                    TextAlignment {
-                        vertical: VerticalAlign::Bottom,
-                        horizontal: HorizontalAlign::Left,
-                    },
-                ),
-                ..Default::default()
-            });
-        })
-        .insert(DebugConsoleOutput)
-        .id();
+                    color: UiColor(Color::NONE),
+                    ..Default::default()
+                })
+                .insert(DebugConsoleOutput)
+                .with_children(|output| {
+                    output.spawn_bundle(TextBundle {
+                        text: Text::with_section(
+                            "",
+                            TextStyle {
+                                font_size: 13.0,
+                                color: Color::rgb(0.55, 1.0, 0.55),
+                                font: font.clone(),
+                            },
+                            TextAlignment {
+                                vertical: VerticalAlign::Bottom,
+                                horizontal: HorizontalAlign::Left,
+                            },
+                        ),
+                        ..Default::default()
+                    });
+                });
 
-    let input_row = commands
-        .spawn_bundle(NodeBundle {
-            style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Px(20.0)),
-                flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .with_children(|parent| {
-            parent.spawn_bundle(TextBundle {
-                text: Text::with_section(
-                    "> ",
-                    TextStyle {
-                        font_size: 13.0,
-                        color: Color::YELLOW,
-                        font: font.clone(),
+            // Input row
+            parent
+                .spawn_bundle(NodeBundle {
+                    style: Style {
+                        size: Size::new(Val::Percent(100.0), Val::Px(20.0)),
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        ..Default::default()
                     },
-                    TextAlignment::default(),
-                ),
-                ..Default::default()
-            });
-            parent.spawn_bundle(TextBundle {
-                text: Text::with_section(
-                    "",
-                    TextStyle {
-                        font_size: 13.0,
-                        color: Color::WHITE,
-                        font,
-                    },
-                    TextAlignment::default(),
-                ),
-                ..Default::default()
-            });
-        })
-        .insert(DebugConsoleInput)
-        .id();
-
-    commands.entity(root).push_children(&[output, input_row]);
+                    color: UiColor(Color::NONE),
+                    ..Default::default()
+                })
+                .insert(DebugConsoleInput)
+                .with_children(|input| {
+                    input.spawn_bundle(TextBundle {
+                        text: Text::with_section(
+                            "> ",
+                            TextStyle {
+                                font_size: 13.0,
+                                color: Color::YELLOW,
+                                font: font.clone(),
+                            },
+                            TextAlignment::default(),
+                        ),
+                        ..Default::default()
+                    });
+                    input.spawn_bundle(TextBundle {
+                        text: Text::with_section(
+                            "",
+                            TextStyle {
+                                font_size: 13.0,
+                                color: Color::WHITE,
+                                font,
+                            },
+                            TextAlignment::default(),
+                        ),
+                        ..Default::default()
+                    });
+                });
+        });
 }
 
 // ============================================================
