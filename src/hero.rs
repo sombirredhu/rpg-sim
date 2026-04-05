@@ -589,9 +589,10 @@ pub fn hero_attraction_system(
     alerts.push(format!("A new {} has arrived!", class.display_name()));
 }
 
-/// System: Morale decay over time, especially at night
+/// System: Morale decay over time, especially at night (reduced by Temple aura)
 pub fn hero_morale_system(
     mut heroes: Query<(&mut Hero, &HeroState)>,
+    building_bonuses: Res<BuildingBonuses>,
     game_time: Res<GameTime>,
     time: Res<Time>,
 ) {
@@ -602,7 +603,13 @@ pub fn hero_morale_system(
 
     for (mut hero, state) in heroes.iter_mut() {
         // Morale decays slowly
-        let decay = if game_time.is_night() { 1.0 } else { 0.3 };
+        let mut decay = if game_time.is_night() { 1.0 } else { 0.3 };
+
+        // Temple aura reduces decay rate (multiplier effect)
+        if building_bonuses.temple_morale_aura > 0.0 {
+            decay /= building_bonuses.temple_morale_aura;
+        }
+
         hero.morale = (hero.morale - decay * dt).max(0.0);
 
         // Resting restores morale

@@ -7,6 +7,7 @@ pub fn hero_attack_system(
     mut heroes: Query<(Entity, &Hero, &HeroStats, &HeroEquipment, &HeroState, &mut AttackCooldown, &Transform)>,
     mut enemies: Query<(Entity, &mut EnemyStats, &Transform), (With<Enemy>, Without<Hero>)>,
     active_buffs: Res<ActiveBuffs>,
+    building_bonuses: Res<BuildingBonuses>,
     game_time: Res<GameTime>,
     time: Res<Time>,
     mut sfx_events: EventWriter<SfxEvent>,
@@ -42,8 +43,11 @@ pub fn hero_attack_system(
                 let dist = (enemy_pos - hero_pos).length();
 
                 if dist <= stats.attack_range && enemy_stats.hp > 0.0 {
-                    // Calculate damage (base + equipment bonuses)
-                    let total_attack = stats.attack + equipment.total_atk_bonus() + active_buffs.atk_bonus;
+                    // Calculate damage (base + equipment bonuses + building bonuses)
+                    let total_attack = stats.attack
+                        + equipment.total_atk_bonus()
+                        + active_buffs.atk_bonus
+                        + building_bonuses.blacksmith_atk_bonus;
                     let mut damage = total_attack - enemy_stats.defense;
 
                     // Class-specific bonuses
@@ -81,6 +85,12 @@ pub fn hero_attack_system(
                     }
 
                     damage = damage.max(1.0);
+
+                    // Apply Wizard Tower bonus for mages
+                    if hero.class == HeroClass::Mage {
+                        damage *= building_bonuses.wizard_research_bonus;
+                    }
+
                     enemy_stats.hp -= damage;
                     sfx_events.send(SfxEvent::HitImpact);
 
@@ -106,6 +116,7 @@ pub fn enemy_attack_system(
     mut heroes: Query<(Entity, &mut HeroStats, &HeroEquipment, &mut HeroState, &Transform), (With<Hero>, Without<Enemy>)>,
     mut buildings: Query<(&mut Building, &Transform), (Without<Hero>, Without<Enemy>)>,
     active_buffs: Res<ActiveBuffs>,
+    building_bonuses: Res<BuildingBonuses>,
     game_time: Res<GameTime>,
     time: Res<Time>,
     mut sfx_events: EventWriter<SfxEvent>,
@@ -134,7 +145,10 @@ pub fn enemy_attack_system(
                 let dist = (hero_pos - enemy_pos).length();
 
                 if dist <= stats.attack_range && hero_stats.hp > 0.0 {
-                    let total_defense = hero_stats.defense + hero_equipment.total_def_bonus() + active_buffs.def_bonus;
+                    let total_defense = hero_stats.defense
+                        + hero_equipment.total_def_bonus()
+                        + active_buffs.def_bonus
+                        + building_bonuses.blacksmith_def_bonus;
                     let base_damage = (stats.attack - total_defense).max(1.0);
                     let damage = (base_damage * (1.0 - hero_stats.fortify_reduction)).max(1.0);
                     hero_stats.hp -= damage;
@@ -291,8 +305,8 @@ const ARCANE_SURGE_CHANNEL: f32 = 1.5;
 /// Arcane Surge cooldown on the caster
 const ARCANE_SURGE_COOLDOWN: f32 = 8.0;
 /// Base blast damage per enemy hit (scales with mage attack)
-fn arcane_surge_damage(stats: &HeroStats) -> f32 {
-    (stats.attack * 1.5).max(5.0)
+fn arcane_surge_damage(stats: &HeroStats, wizard_bonus: f32) -> f32 {
+    (stats.attack * 1.5 * wizard_bonus).max(5.0)
 }
 
 /// System: Mage AI decision to cast Arcane Surge when multiple enemies cluster nearby.
@@ -351,6 +365,7 @@ pub fn arcane_surge_channel_system(
         (Entity, &mut EnemyStats, &Transform),
         (With<Enemy>, Without<Hero>),
     >,
+    building_bonuses: Res<BuildingBonuses>,
     mut alerts: ResMut<GameAlerts>,
     time: Res<Time>,
     game_time: Res<GameTime>,
@@ -380,7 +395,7 @@ pub fn arcane_surge_channel_system(
                 if new_elapsed >= channel_duration {
                     // Channel complete — deal blast damage to all enemies in range
                     let mage_pos = Vec2::new(mage_transform.translation.x, mage_transform.translation.y);
-                    let blast_power = arcane_surge_damage(stats);
+                    let blast_power = arcane_surge_damage(stats, building_bonuses.wizard_research_bonus);
                     let mut hit_count = 0;
 
                     for (_enemy_entity, mut enemy_stats, enemy_transform) in enemies.iter_mut() {
