@@ -204,19 +204,15 @@ pub fn boss_raid_system(
     }
 }
 
-/// Startup: Spawn initial monster dens using monster-den tier sprites.
+/// Startup: Spawn initial monster dens at structured zone positions.
 pub fn spawn_initial_dens(
     mut commands: Commands,
     sprites: Res<SpriteAssets>,
 ) {
-    let den_positions = [
-        (Vec2::new(700.0, 500.0), EnemyType::Goblin),
-        (Vec2::new(-800.0, -500.0), EnemyType::Goblin),
-        (Vec2::new(500.0, -700.0), EnemyType::Bandit),
-        (Vec2::new(-600.0, 800.0), EnemyType::Bandit),
-    ];
+    let den_positions = crate::map_layout::CORE_MONSTER_DENS;
 
-    for (pos, enemy_type) in den_positions {
+    for &(x, y, enemy_type) in den_positions {
+        let pos = Vec2::new(x, y);
         let den = MonsterDen::new(enemy_type);
         let tier = den.threat_tier;
 

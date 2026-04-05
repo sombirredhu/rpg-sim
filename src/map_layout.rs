@@ -30,7 +30,7 @@ pub const MAP_HALF_EXTENT: f32 = 1500.0;
 // Coordinates stored as raw f32 because Vec2::new is not const fn.
 // ============================================================
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ZoneTerrain {
     CleanGrass,
     ForestGrass,
@@ -78,7 +78,7 @@ pub const CORE_ZONES: &[ZoneConfig] = &[
 // ============================================================
 // RIVER — 8-segment S-curve NW to SE, passes west of town
 // ============================================================
-pub const RIVER_SEGMENTS: &[(f32; 4)] = &[
+pub const RIVER_SEGMENTS: &[(f32, f32, f32, f32)] = &[
     (-1200.0, 1000.0,  -900.0,  700.0),
     ( -900.0,  700.0, -700.0,  500.0),
     ( -700.0,  500.0, -500.0,  350.0),

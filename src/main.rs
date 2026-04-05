@@ -22,6 +22,7 @@ mod mouse;
 mod menu;
 mod debug;
 mod save;
+mod map_layout;
 
 use bevy::prelude::*;
 use components::*;

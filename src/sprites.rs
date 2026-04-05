@@ -1008,18 +1008,58 @@ pub fn sync_monster_den_tier_visuals(
 }
 
 pub fn spawn_ground_tiles(mut commands: Commands, sprites: Res<SpriteAssets>) {
-    // Tile the medieval grassland texture in a 3×3 grid to cover the ±1200 area.
-    // grassland.png is ~512×512, scale each tile to cover ~800 world units.
-    let tile_world_size = 800.0;
-    for gx in -1..=1 {
-        for gy in -1..=1 {
+    use crate::map_layout::{CORE_ZONES, ZoneTerrain};
+
+    // Tile the grassland base in a 4×4 grid for the larger 3000×3000 map.
+    // grassland.png is ~512×512, scale for ~1000 world units per tile.
+    let tile_world_size = 1000.0;
+    for gx in -1..=2 {
+        for gy in -1..=2 {
             commands.spawn_bundle(SpriteBundle {
                 texture: sprites.grassland_tex.clone(),
                 transform: Transform::from_translation(Vec3::new(
                     gx as f32 * tile_world_size,
                     gy as f32 * tile_world_size,
                     0.0,
-                )).with_scale(Vec3::splat(1.5)),
+                )).with_scale(Vec3::splat(2.0)),
+                ..Default::default()
+            });
+        }
+    }
+
+    // Per-zone terrain overlays: darker green for forests, brown dirt for mines/quarries.
+    for zone in CORE_ZONES {
+        let center = zone.center();
+        let count = match zone.terrain {
+            ZoneTerrain::ForestGrass => 6,
+            ZoneTerrain::RockyDirt => 5,
+            ZoneTerrain::CleanGrass => 0,
+        };
+        for _ in 0..count {
+            let angle = rand::random::<f32>() * std::f32::consts::TAU;
+            let radius = rand::random::<f32>() * zone.radius * 0.7;
+            let pos = center + Vec2::new(angle.cos() * radius, angle.sin() * radius);
+            let size = 80.0 + rand::random::<f32>() * 80.0;
+            let (color, tex) = match zone.terrain {
+                ZoneTerrain::ForestGrass => (
+                    Color::rgba(0.65, 0.72, 0.45, 0.35),
+                    sprites.grass_overcast_tex.clone(),
+                ),
+                ZoneTerrain::RockyDirt => (
+                    Color::rgba(0.55, 0.48, 0.38, 0.4),
+                    sprites.bark_overlay_tex.clone(),
+                ),
+                _ => unreachable!(),
+            };
+            commands.spawn_bundle(SpriteBundle {
+                texture: tex,
+                sprite: Sprite {
+                    color,
+                    custom_size: Some(Vec2::splat(size)),
+                    ..Default::default()
+                },
+                transform: Transform::from_translation(Vec3::new(pos.x, pos.y, 0.05))
+                    .with_rotation(Quat::from_rotation_z(rand::random::<f32>() * std::f32::consts::TAU)),
                 ..Default::default()
             });
         }
@@ -1028,6 +1068,11 @@ pub fn spawn_ground_tiles(mut commands: Commands, sprites: Res<SpriteAssets>) {
 
 pub fn spawn_terrain_overlays(mut commands: Commands, sprites: Res<SpriteAssets>) {
     use std::f32::consts::TAU;
+    use crate::map_layout::{
+        CORE_ZONES, ZoneTerrain,
+        RIVER_SEGMENTS, RIVER_OVERLAY_SIZE, RIVER_STEP,
+        RUIN_POSITIONS, CORE_MONSTER_DENS, RuinType,
+    };
 
     // Spawn a semi-transparent terrain overlay sprite.
     let spawn_overlay = |commands: &mut Commands, tex: Handle<Image>, pos: Vec2,
@@ -1045,15 +1090,38 @@ pub fn spawn_terrain_overlays(mut commands: Commands, sprites: Res<SpriteAssets>
         });
     };
 
-    // === Water ponds (z=0.2) — 4 ponds scattered across the map ===
-    let water_positions = [
-        Vec2::new(500.0, 500.0),
-        Vec2::new(-600.0, 400.0),
-        Vec2::new(400.0, -600.0),
-        Vec2::new(-700.0, -500.0),
+    // === River — S-curve water path NW -> SE (natural barrier) ===
+    for &(x1, y1, x2, y2) in RIVER_SEGMENTS {
+        let from = Vec2::new(x1, y1);
+        let to = Vec2::new(x2, y2);
+        let dir = to - from;
+        let len = dir.length();
+        let steps = (len / RIVER_STEP).ceil() as i32;
+        for i in 0..=steps {
+            let t = i as f32 / steps as f32;
+            let pos = from + dir * t;
+            let jitter = Vec2::new(
+                (rand::random::<f32>() - 0.5) * 40.0,
+                (rand::random::<f32>() - 0.5) * 40.0,
+            );
+            let angle = dir.y.atan2(dir.x) + (rand::random::<f32>() - 0.5) * 0.15;
+            spawn_overlay(
+                &mut commands, sprites.water_overlay_tex.clone(),
+                pos + jitter, 0.25,
+                RIVER_OVERLAY_SIZE + rand::random::<f32>() * 30.0,
+                Color::rgba(0.25, 0.4, 0.6, 0.7),
+                angle,
+            );
+        }
+    }
+
+    // === Decorative ponds — off-river pools ===
+    let pond_positions = [
+        Vec2::new(550.0, 550.0),
+        Vec2::new(-650.0, 450.0),
     ];
-    for pos in &water_positions {
-        let size = 200.0 + rand::random::<f32>() * 100.0;
+    for pos in &pond_positions {
+        let size = 180.0 + rand::random::<f32>() * 80.0;
         spawn_overlay(
             &mut commands, sprites.water_overlay_tex.clone(),
             *pos, 0.2, size,
@@ -1062,69 +1130,44 @@ pub fn spawn_terrain_overlays(mut commands: Commands, sprites: Res<SpriteAssets>
         );
     }
 
-    // === Rocky areas (z=0.15) — scattered outcrops ===
-    for _ in 0..15 {
-        let angle = rand::random::<f32>() * TAU;
-        let radius = 200.0 + rand::random::<f32>() * 900.0;
-        let pos = Vec2::new(angle.cos() * radius, angle.sin() * radius);
-        let size = 60.0 + rand::random::<f32>() * 80.0;
-        let rock_tex = if rand::random::<bool>() {
-            sprites.rock_overlay_tex.clone()
-        } else {
-            sprites.rock_wet_overlay_tex.clone()
+    // === Rocky outcrops — concentrated near mine/quarry zones ===
+    for zone in CORE_ZONES {
+        let center = zone.center();
+        let count = match zone.terrain {
+            ZoneTerrain::RockyDirt => 8,
+            _ => 2,
         };
-        spawn_overlay(
-            &mut commands, rock_tex, pos, 0.15, size,
-            Color::rgba(0.7, 0.65, 0.6, 0.5),
-            rand::random::<f32>() * TAU,
-        );
+        for _ in 0..count {
+            let angle = rand::random::<f32>() * TAU;
+            let radius = rand::random::<f32>() * zone.radius;
+            let pos = center + Vec2::new(angle.cos() * radius, angle.sin() * radius);
+            let size = 60.0 + rand::random::<f32>() * 70.0;
+            let rock_tex = if rand::random::<bool>() {
+                sprites.rock_overlay_tex.clone()
+            } else {
+                sprites.rock_wet_overlay_tex.clone()
+            };
+            spawn_overlay(
+                &mut commands, rock_tex, pos, 0.15, size,
+                Color::rgba(0.7, 0.65, 0.6, 0.5),
+                rand::random::<f32>() * TAU,
+            );
+        }
     }
 
-    // === Dirt/bark patches (z=0.1) — ground variation ===
-    for _ in 0..25 {
-        let angle = rand::random::<f32>() * TAU;
-        let radius = 100.0 + rand::random::<f32>() * 900.0;
-        let pos = Vec2::new(angle.cos() * radius, angle.sin() * radius);
-        let size = 50.0 + rand::random::<f32>() * 70.0;
-        spawn_overlay(
-            &mut commands, sprites.bark_overlay_tex.clone(),
-            pos, 0.1, size,
-            Color::rgba(0.7, 0.6, 0.4, 0.35),
-            rand::random::<f32>() * TAU,
-        );
-    }
-
-    // === Overcast grass patches (z=0.05) — darker grass areas ===
-    for _ in 0..20 {
-        let angle = rand::random::<f32>() * TAU;
-        let radius = 100.0 + rand::random::<f32>() * 1000.0;
-        let pos = Vec2::new(angle.cos() * radius, angle.sin() * radius);
-        let size = 100.0 + rand::random::<f32>() * 150.0;
-        spawn_overlay(
-            &mut commands, sprites.grass_overcast_tex.clone(),
-            pos, 0.05, size,
-            Color::rgba(0.85, 0.8, 0.7, 0.25),
-            rand::random::<f32>() * TAU,
-        );
-    }
-
-    // === Path-like dirt trails (z=0.3) — connecting key points ===
-    let path_segments = [
-        (Vec2::new(0.0, 0.0), Vec2::new(500.0, 500.0)),
-        (Vec2::new(0.0, 0.0), Vec2::new(-300.0, 200.0)),
-        (Vec2::new(0.0, 0.0), Vec2::new(250.0, 150.0)),
-        (Vec2::new(0.0, 0.0), Vec2::new(-200.0, -250.0)),
-        (Vec2::new(250.0, 150.0), Vec2::new(500.0, 500.0)),
-        (Vec2::new(-300.0, 200.0), Vec2::new(-600.0, 400.0)),
-        (Vec2::new(0.0, 0.0), Vec2::new(400.0, -600.0)),
-        (Vec2::new(0.0, 0.0), Vec2::new(-700.0, -500.0)),
+    // === Paths — connect town to key zones ===
+    let path_targets = [
+        Vec2::new(480.0, 280.0),   // NE gold mine
+        Vec2::new(-450.0, 280.0),  // NW forest
+        Vec2::new(750.0, 0.0),     // E quarry
+        Vec2::new(-320.0, -280.0), // SW gold mine
     ];
-    for (from, to) in &path_segments {
-        for t in &[0.25, 0.5, 0.75] {
-            let pos = *from + (*to - *from) * *t;
+    for target in &path_targets {
+        for t in &[0.3, 0.5, 0.7] {
+            let pos = *target * *t;
             let jitter = Vec2::new(
-                (rand::random::<f32>() - 0.5) * 40.0,
-                (rand::random::<f32>() - 0.5) * 40.0,
+                (rand::random::<f32>() - 0.5) * 30.0,
+                (rand::random::<f32>() - 0.5) * 30.0,
             );
             let path_tex = if rand::random::<bool>() {
                 sprites.path_overlay_tex.clone()
@@ -1134,34 +1177,99 @@ pub fn spawn_terrain_overlays(mut commands: Commands, sprites: Res<SpriteAssets>
             spawn_overlay(
                 &mut commands, path_tex,
                 pos + jitter, 0.3,
-                60.0 + rand::random::<f32>() * 40.0,
+                55.0 + rand::random::<f32>() * 35.0,
                 Color::rgba(0.5, 0.4, 0.3, 0.45),
-                (*to - *from).angle_between(Vec2::X) + (rand::random::<f32>() - 0.5) * 0.3,
+                target.y.atan2(target.x) + (rand::random::<f32>() - 0.5) * 0.3,
             );
         }
+    }
+
+    // === Ruin decoration clusters — exploration landmarks ===
+    for &(rx, ry, ruin_type) in RUIN_POSITIONS {
+        let center = Vec2::new(rx, ry);
+        let ruin_tex = match ruin_type {
+            RuinType::TempleRuin => sprites.deco_temple_ruin.clone(),
+            RuinType::ArchRuin => sprites.deco_ruin_arch1.clone(),
+            RuinType::WallRuin => sprites.deco_ruin_wall1.clone(),
+        };
+        commands.spawn_bundle(SpriteBundle {
+            texture: ruin_tex,
+            transform: Transform::from_translation(Vec3::new(center.x, center.y, 3.0))
+                .with_scale(Vec3::splat(1.5)),
+            ..Default::default()
+        }).insert(MapDecoration);
+
+        let debris = [
+            sprites.deco_ruin_pillar1.clone(),
+            sprites.deco_ruin_pillar2.clone(),
+            sprites.deco_ruin_arch2.clone(),
+            sprites.deco_ruin_wall2.clone(),
+        ];
+        for _ in 0..4 {
+            let angle = rand::random::<f32>() * TAU;
+            let r = 20.0 + rand::random::<f32>() * 50.0;
+            let pos = center + Vec2::new(angle.cos() * r, angle.sin() * r);
+            let idx = rand::random::<usize>() % debris.len();
+            let scale = 0.7 + rand::random::<f32>() * 0.5;
+            commands.spawn_bundle(SpriteBundle {
+                texture: debris[idx].clone(),
+                transform: Transform::from_translation(Vec3::new(pos.x, pos.y, 2.5))
+                    .with_scale(Vec3::splat(scale)),
+                ..Default::default()
+            }).insert(MapDecoration);
+        }
+    }
+
+    // === Treasure spots near ruins ===
+    for &(rx, ry, _) in RUIN_POSITIONS {
+        let angle = rand::random::<f32>() * TAU;
+        let r = 60.0 + rand::random::<f32>() * 40.0;
+        let pos = Vec2::new(rx, ry) + Vec2::new(angle.cos() * r, angle.sin() * r);
+        spawn_overlay(
+            &mut commands, sprites.grass_overcast_tex.clone(),
+            pos, 1.0, 25.0,
+            Color::rgba(0.9, 0.75, 0.3, 0.4),
+            0.0,
+        );
+    }
+
+    // === Den marker visuals — subtle threat aura at core monster dens ===
+    for &(dx, dy, _) in CORE_MONSTER_DENS {
+        let pos = Vec2::new(dx, dy);
+        spawn_overlay(
+            &mut commands, sprites.rock_overlay_tex.clone(),
+            pos, 0.4, 120.0,
+            Color::rgba(0.5, 0.15, 0.15, 0.3),
+            rand::random::<f32>() * TAU,
+        );
     }
 }
 
 pub fn spawn_trees(mut commands: Commands, sprites: Res<SpriteAssets>) {
-    let tree_positions: Vec<Vec2> = (0..40)
-        .map(|_| {
-            let angle = rand::random::<f32>() * std::f32::consts::TAU;
-            let radius = 250.0 + rand::random::<f32>() * 300.0;
-            Vec2::new(angle.cos() * radius, angle.sin() * radius)
-        })
-        .collect();
+    use crate::map_layout::{CORE_ZONES, ZoneTerrain};
 
-    for pos in tree_positions {
-        let tree_variant = if rand::random::<bool>() { 0 } else { 1 };
-        commands.spawn_bundle(SpriteSheetBundle {
-            texture_atlas: sprites.trees_atlas.clone(),
-            transform: Transform::from_translation(Vec3::new(pos.x, pos.y, 3.0)).with_scale(Vec3::splat(1.5)),
-            sprite: TextureAtlasSprite {
-                index: tree_variant,
+    // Spawn trees only in forest zones, not randomly scattered everywhere.
+    for zone in CORE_ZONES {
+        if zone.terrain != ZoneTerrain::ForestGrass { continue; }
+        let center = zone.center();
+
+        // Dense tree clusters inside forest zones.
+        for _ in 0..8 {
+            let angle = rand::random::<f32>() * std::f32::consts::TAU;
+            let radius = rand::random::<f32>() * zone.radius * 0.8;
+            let pos = center + Vec2::new(angle.cos() * radius, angle.sin() * radius);
+            let tree_variant = if rand::random::<bool>() { 0 } else { 1 };
+            commands.spawn_bundle(SpriteSheetBundle {
+                texture_atlas: sprites.trees_atlas.clone(),
+                transform: Transform::from_translation(Vec3::new(pos.x, pos.y, 3.0))
+                    .with_scale(Vec3::splat(1.5)),
+                sprite: TextureAtlasSprite {
+                    index: tree_variant,
+                    ..Default::default()
+                },
                 ..Default::default()
-            },
-            ..Default::default()
-        });
+            });
+        }
     }
 }
 
