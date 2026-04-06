@@ -84,6 +84,62 @@ pub struct RepairButton;
 pub struct RepairButtonText;
 
 // ============================================================
+// LEGACY UPGRADE UI
+// ============================================================
+
+/// Marker for the Legacy Upgrades screen panel (hidden by default)
+#[derive(Component)]
+pub struct LegacyUpgradeScreen;
+
+/// Marker for the Legacy Points display text
+#[derive(Component)]
+pub struct LegacyPointsText;
+
+/// Marker for the tax bonus upgrade row
+#[derive(Component)]
+pub struct TaxUpgradeRow;
+
+/// Marker for the hero start level upgrade row
+#[derive(Component)]
+pub struct HeroStartUpgradeRow;
+
+/// Marker for the building HP upgrade row
+#[derive(Component)]
+pub struct BuildingHpUpgradeRow;
+
+/// Marker for the bounty cost reduction upgrade row
+#[derive(Component)]
+pub struct BountyCostUpgradeRow;
+
+/// Marker for upgrade buttons
+#[derive(Component)]
+pub struct TaxUpgradeButton;
+#[derive(Component)]
+pub struct HeroStartUpgradeButton;
+#[derive(Component)]
+pub struct BuildingHpUpgradeButton;
+#[derive(Component)]
+pub struct BountyCostUpgradeButton;
+
+/// Marker for the label text of each upgrade row (for UI updates)
+#[derive(Component)]
+pub struct TaxUpgradeLabel;
+#[derive(Component)]
+pub struct HeroStartUpgradeLabel;
+#[derive(Component)]
+pub struct BuildingHpUpgradeLabel;
+#[derive(Component)]
+pub struct BountyCostUpgradeLabel;
+
+/// Marker for the Legacy button in the top bar
+#[derive(Component)]
+pub struct LegacyButton;
+
+/// Marker for the Back button inside the Legacy Upgrades screen
+#[derive(Component)]
+pub struct LegacyBackButton;
+
+// ============================================================
 // HERO COMPONENTS
 // ============================================================
 
@@ -1850,3 +1906,12 @@ pub struct MusicVolume(pub f32);
 /// Camera pan speed multiplier (1.0 = default)
 #[derive(Default)]
 pub struct CameraSpeed(pub f32);
+
+/// Tracks long-press interaction state for showing contextual info cards
+#[derive(Default)]
+pub struct LongPressState {
+    pub active: bool,
+    pub start_time: f32,
+    pub entity: Option<Entity>,
+    pub threshold: f32,
+}

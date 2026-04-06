@@ -369,6 +369,30 @@ pub fn setup_ui(
                             ..Default::default()
                         });
                     });
+
+                    // Legacy button (open Legacy Upgrades screen)
+                    btn_row.spawn_bundle(ButtonBundle {
+                        style: Style {
+                            size: Size::new(Val::Px(32.0), Val::Px(28.0)),
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::Center,
+                            margin: Rect { right: Val::Px(4.0), ..Default::default() },
+                            ..Default::default()
+                        },
+                        color: UiColor(Color::rgba(0.6, 0.4, 0.8, 0.8)),
+                        ..Default::default()
+                    })
+                    .insert(LegacyButton)
+                    .with_children(|btn| {
+                        btn.spawn_bundle(TextBundle {
+                            text: Text::with_section(
+                                "L",
+                                TextStyle { font: font.clone(), font_size: 16.0, color: Color::rgb(0.9, 0.7, 1.0) },
+                                TextAlignment::default(),
+                            ),
+                            ..Default::default()
+                        });
+                    });
                 });
             });
 
@@ -797,6 +821,259 @@ pub fn setup_ui(
                         });
                     })
                     .insert(EraContinueButton);
+                });
+
+                // Legacy Upgrades screen (initially hidden)
+                parent.spawn_bundle(NodeBundle {
+                    style: Style {
+                        size: Size::new(Val::Px(300.0), Val::Auto),
+                        position_type: PositionType::Absolute,
+                        position: Rect {
+                            left: Val::Px(400.0),
+                            top: Val::Px(80.0),
+                            ..Default::default()
+                        },
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::Center,
+                        padding: Rect::all(Val::Px(16.0)),
+                        ..Default::default()
+                    },
+                    color: UiColor(Color::rgba(0.1, 0.1, 0.1, 0.95)),
+                    visibility: Visibility { is_visible: false },
+                    ..Default::default()
+                })
+                .insert(LegacyUpgradeScreen)
+                .with_children(|panel| {
+                    // Title
+                    panel.spawn_bundle(TextBundle {
+                        text: Text::with_section(
+                            "Legacy Upgrades",
+                            TextStyle { font: font.clone(), font_size: 28.0, color: Color::rgb(0.9, 0.8, 0.2) },
+                            TextAlignment::default(),
+                        ),
+                        style: Style { margin: Rect { bottom: Val::Px(12.0), ..Default::default() }, ..Default::default() },
+                        ..Default::default()
+                    });
+
+                    // Legacy Points display
+                    panel.spawn_bundle(TextBundle {
+                        text: Text::with_section(
+                            "Legacy Points: 0",
+                            TextStyle { font: font.clone(), font_size: 20.0, color: Color::WHITE },
+                            TextAlignment::default(),
+                        ),
+                        style: Style { margin: Rect { bottom: Val::Px(12.0), ..Default::default() }, ..Default::default() },
+                        ..Default::default()
+                    })
+                    .insert(LegacyPointsText);
+
+                    // Row: Tax Bonus
+                    panel.spawn_bundle(NodeBundle {
+                        style: Style {
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::SpaceBetween,
+                            margin: Rect { top: Val::Px(6.0), bottom: Val::Px(6.0), ..Default::default() },
+                            ..Default::default()
+                        },
+                        color: UiColor(Color::NONE),
+                        ..Default::default()
+                    })
+                    .insert(TaxUpgradeRow)
+                    .with_children(|row| {
+                        row.spawn_bundle(TextBundle {
+                            text: Text::with_section(
+                                "Tax Bonus: +0%",
+                                TextStyle { font: font.clone(), font_size: 18.0, color: Color::rgb(0.8, 0.8, 0.8) },
+                                TextAlignment::default(),
+                            ),
+                            ..Default::default()
+                        })
+                        .insert(TaxUpgradeLabel);
+                        row.spawn_bundle(ButtonBundle {
+                            style: Style {
+                                size: Size::new(Val::Px(24.0), Val::Px(24.0)),
+                                align_items: AlignItems::Center,
+                                justify_content: JustifyContent::Center,
+                                ..Default::default()
+                            },
+                            color: UiColor(Color::rgba(0.2, 0.6, 0.2, 0.8)),
+                            ..Default::default()
+                        })
+                        .insert(TaxUpgradeButton)
+                        .with_children(|btn| {
+                            btn.spawn_bundle(TextBundle {
+                                text: Text::with_section(
+                                    "+",
+                                    TextStyle { font: font.clone(), font_size: 16.0, color: Color::WHITE },
+                                    TextAlignment::default(),
+                                ),
+                                ..Default::default()
+                            });
+                        });
+                    });
+
+                    // Row: Hero Start Level
+                    panel.spawn_bundle(NodeBundle {
+                        style: Style {
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::SpaceBetween,
+                            margin: Rect { top: Val::Px(6.0), bottom: Val::Px(6.0), ..Default::default() },
+                            ..Default::default()
+                        },
+                        color: UiColor(Color::NONE),
+                        ..Default::default()
+                    })
+                    .insert(HeroStartUpgradeRow)
+                    .with_children(|row| {
+                        row.spawn_bundle(TextBundle {
+                            text: Text::with_section(
+                                "Hero Start Level: 1",
+                                TextStyle { font: font.clone(), font_size: 18.0, color: Color::rgb(0.8, 0.8, 0.8) },
+                                TextAlignment::default(),
+                            ),
+                            ..Default::default()
+                        })
+                        .insert(HeroStartUpgradeLabel);
+                        row.spawn_bundle(ButtonBundle {
+                            style: Style {
+                                size: Size::new(Val::Px(24.0), Val::Px(24.0)),
+                                align_items: AlignItems::Center,
+                                justify_content: JustifyContent::Center,
+                                ..Default::default()
+                            },
+                            color: UiColor(Color::rgba(0.2, 0.6, 0.2, 0.8)),
+                            ..Default::default()
+                        })
+                        .insert(HeroStartUpgradeButton)
+                        .with_children(|btn| {
+                            btn.spawn_bundle(TextBundle {
+                                text: Text::with_section(
+                                    "+",
+                                    TextStyle { font: font.clone(), font_size: 16.0, color: Color::WHITE },
+                                    TextAlignment::default(),
+                                ),
+                                ..Default::default()
+                            });
+                        });
+                    });
+
+                    // Row: Building HP Bonus
+                    panel.spawn_bundle(NodeBundle {
+                        style: Style {
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::SpaceBetween,
+                            margin: Rect { top: Val::Px(6.0), bottom: Val::Px(6.0), ..Default::default() },
+                            ..Default::default()
+                        },
+                        color: UiColor(Color::NONE),
+                        ..Default::default()
+                    })
+                    .insert(BuildingHpUpgradeRow)
+                    .with_children(|row| {
+                        row.spawn_bundle(TextBundle {
+                            text: Text::with_section(
+                                "Building HP Bonus: +0%",
+                                TextStyle { font: font.clone(), font_size: 18.0, color: Color::rgb(0.8, 0.8, 0.8) },
+                                TextAlignment::default(),
+                            ),
+                            ..Default::default()
+                        })
+                        .insert(BuildingHpUpgradeLabel);
+                        row.spawn_bundle(ButtonBundle {
+                            style: Style {
+                                size: Size::new(Val::Px(24.0), Val::Px(24.0)),
+                                align_items: AlignItems::Center,
+                                justify_content: JustifyContent::Center,
+                                ..Default::default()
+                            },
+                            color: UiColor(Color::rgba(0.2, 0.6, 0.2, 0.8)),
+                            ..Default::default()
+                        })
+                        .insert(BuildingHpUpgradeButton)
+                        .with_children(|btn| {
+                            btn.spawn_bundle(TextBundle {
+                                text: Text::with_section(
+                                    "+",
+                                    TextStyle { font: font.clone(), font_size: 16.0, color: Color::WHITE },
+                                    TextAlignment::default(),
+                                ),
+                                ..Default::default()
+                            });
+                        });
+                    });
+
+                    // Row: Bounty Cost Reduction
+                    panel.spawn_bundle(NodeBundle {
+                        style: Style {
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::SpaceBetween,
+                            margin: Rect { top: Val::Px(6.0), bottom: Val::Px(6.0), ..Default::default() },
+                            ..Default::default()
+                        },
+                        color: UiColor(Color::NONE),
+                        ..Default::default()
+                    })
+                    .insert(BountyCostUpgradeRow)
+                    .with_children(|row| {
+                        row.spawn_bundle(TextBundle {
+                            text: Text::with_section(
+                                "Bounty Cost: 0% off",
+                                TextStyle { font: font.clone(), font_size: 18.0, color: Color::rgb(0.8, 0.8, 0.8) },
+                                TextAlignment::default(),
+                            ),
+                            ..Default::default()
+                        })
+                        .insert(BountyCostUpgradeLabel);
+                        row.spawn_bundle(ButtonBundle {
+                            style: Style {
+                                size: Size::new(Val::Px(24.0), Val::Px(24.0)),
+                                align_items: AlignItems::Center,
+                                justify_content: JustifyContent::Center,
+                                ..Default::default()
+                            },
+                            color: UiColor(Color::rgba(0.2, 0.6, 0.2, 0.8)),
+                            ..Default::default()
+                        })
+                        .insert(BountyCostUpgradeButton)
+                        .with_children(|btn| {
+                            btn.spawn_bundle(TextBundle {
+                                text: Text::with_section(
+                                    "+",
+                                    TextStyle { font: font.clone(), font_size: 16.0, color: Color::WHITE },
+                                    TextAlignment::default(),
+                                ),
+                                ..Default::default()
+                            });
+                        });
+                    });
+
+                    // Back button
+                    panel.spawn_bundle(ButtonBundle {
+                        style: Style {
+                            size: Size::new(Val::Px(120.0), Val::Px(40.0)),
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::Center,
+                            margin: Rect { top: Val::Px(12.0), bottom: Val::Px(0.0), ..Default::default() },
+                            ..Default::default()
+                        },
+                        color: UiColor(Color::rgba(0.3, 0.5, 0.2, 0.8)),
+                        ..Default::default()
+                    })
+                    .with_children(|btn| {
+                        btn.spawn_bundle(TextBundle {
+                            text: Text::with_section(
+                                "Back",
+                                TextStyle { font: font.clone(), font_size: 18.0, color: Color::WHITE },
+                                TextAlignment::default(),
+                            ),
+                            ..Default::default()
+                        });
+                    })
+                    .insert(LegacyBackButton); // use separate marker for in-game legacy screen (will differentiate by context)
                 });
 
                 // Floating bounty board button (bottom-right)
