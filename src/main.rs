@@ -24,12 +24,60 @@ mod debug;
 mod save;
 mod map_layout;
 mod noise_map;
+mod logger;
 
 use bevy::prelude::*;
 use components::*;
 use sprites::SpriteAssets;
 
+// Import necessary plugins to replace DefaultPlugins (without LogPlugin)
+use bevy::core::CorePlugin;
+use bevy::transform::TransformPlugin;
+use bevy::diagnostic::DiagnosticsPlugin;
+use bevy::input::InputPlugin;
+use bevy::window::WindowPlugin;
+use bevy::asset::AssetPlugin;
+use bevy::scene::ScenePlugin;
+use bevy::winit::WinitPlugin;
+use bevy::render::RenderPlugin;
+use bevy::core_pipeline::CorePipelinePlugin;
+use bevy::sprite::SpritePlugin;
+use bevy::text::TextPlugin;
+use bevy::ui::UiPlugin;
+use bevy::pbr::PbrPlugin;
+use bevy::gltf::GltfPlugin;
+use bevy::audio::AudioPlugin;
+use bevy::gilrs::GilrsPlugin;
+
+#[macro_use]
+extern crate log;
+
 fn main() {
+    // Initialize logger first, before anything else
+    if let Ok(log_path) = logger::init_logger() {
+        println!("Logging to: {}", log_path.display());
+    } else {
+        eprintln!("Failed to initialize logger: {:?}", std::io::Error::last_os_error());
+    }
+
+    // Set up panic hook to log panics before exit
+    std::panic::set_hook(Box::new(move |panic_info| {
+        // Extract panic message from payload
+        let msg = panic_info.payload()
+            .downcast_ref::<&str>()
+            .copied()
+            .or_else(|| panic_info.payload().downcast_ref::<String>().map(String::as_str))
+            .unwrap_or("unknown");
+
+        if let Some(location) = panic_info.location() {
+            log::error!("PANIC at {}:{}: {}", location.file(), location.line(), msg);
+        } else {
+            log::error!("PANIC: {}", msg);
+        }
+        // Also print to stderr for immediate visibility
+        eprintln!("Game panicked! Check logs for details.");
+    }));
+
     App::new()
         .insert_resource(WindowDescriptor {
             title: "Realm of Bounties".to_string(),
@@ -39,7 +87,23 @@ fn main() {
             ..Default::default()
         })
         .insert_resource(ClearColor(Color::rgb_u8(21, 29, 23)))
-        .add_plugins(DefaultPlugins)
+        .add_plugin(CorePlugin::default())
+        .add_plugin(TransformPlugin::default())
+        .add_plugin(DiagnosticsPlugin::default())
+        .add_plugin(InputPlugin::default())
+        .add_plugin(WindowPlugin::default())
+        .add_plugin(AssetPlugin::default())
+        .add_plugin(ScenePlugin::default())
+        .add_plugin(WinitPlugin::default())
+        .add_plugin(RenderPlugin::default())
+        .add_plugin(CorePipelinePlugin::default())
+        .add_plugin(SpritePlugin::default())
+        .add_plugin(TextPlugin::default())
+        .add_plugin(UiPlugin::default())
+        .add_plugin(PbrPlugin::default())
+        .add_plugin(GltfPlugin::default())
+        .add_plugin(AudioPlugin::default())
+        .add_plugin(GilrsPlugin::default())
         // Resources
         .insert_resource(GameEconomy::default())
         .insert_resource(BountyBoard::default())
@@ -48,6 +112,7 @@ fn main() {
         .insert_resource(GamePhase::default())
         .insert_resource(GameAlerts::default())
         .insert_resource(RoadNetwork::default())
+        .insert_resource(RoadDragState::default())
         .insert_resource(Milestones::default())
         .insert_resource(LegacyUpgrades::default())
         .insert_resource(EraState::default())

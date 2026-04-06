@@ -54,7 +54,7 @@ pub fn enemy_ai_system(
     mut enemies: Query<(Entity, &Enemy, &EnemyStats, &mut EnemyAi, &mut Transform, Option<&mut SpriteAnimation>), Without<Hero>>,
     heroes: Query<(Entity, &Transform), (With<Hero>, Without<Enemy>, Without<Stealthed>)>,
     buildings: Query<(Entity, &Transform, &Building), (Without<Enemy>, Without<Hero>)>,
-    caravans: Query<(Entity, &TradeCaravan, &Transform)>,
+    caravans: Query<(Entity, &TradeCaravan, &Transform), (Without<Enemy>,)>,
     game_time: Res<GameTime>,
     time: Res<Time>,
 ) {
