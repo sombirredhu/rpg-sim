@@ -10,24 +10,26 @@ pub fn tax_collection_system(
     time: Res<Time>,
 ) {
     // Calculate income per real second based on building taxes
-    let mut total_tax_per_minute = 0.0;
+    let mut property_tax_per_minute = 0.0;
     for building in buildings.iter() {
         if !building.is_destroyed {
-            total_tax_per_minute += building.building_type.tax_income(building.tier);
+            property_tax_per_minute += building.building_type.tax_income(building.tier);
         }
     }
 
     // Apply road connection tax bonus (Market connected to buildings via roads)
     let road_multiplier = 1.0 + bonuses.road_tax_bonus_pct / 100.0;
-    total_tax_per_minute *= road_multiplier;
+    property_tax_per_minute *= road_multiplier;
 
-    economy.income_per_minute = total_tax_per_minute;
+    // Store the current per-minute rate (will be averaged with time in breakdown system)
+    economy.property_tax_income_per_minute = property_tax_per_minute;
 
     // Add income scaled by time and game speed
-    let income_per_second = total_tax_per_minute / 60.0;
+    let income_per_second = property_tax_per_minute / 60.0;
     let earned = income_per_second * time.delta_seconds() * game_time.speed_multiplier;
     economy.gold += earned;
     economy.total_earned += earned;
+    economy.total_property_tax_earned += earned;
 }
 
 /// System: Warn when treasury reserves drop below safe threshold
@@ -72,6 +74,7 @@ pub fn bounty_payout_system(
         let tax = reward * 0.1;
         economy.gold += tax;
         economy.total_earned += tax;
+        economy.total_bounty_tax_earned += tax;
 
         // Track ROI stats on the bounty board
         bounty_board.total_bounties_completed += 1;
@@ -117,6 +120,28 @@ pub fn auto_bounty_system(
             );
         }
     }
+}
+
+/// System: Compute income breakdown rates from cumulative earnings and game time
+pub fn update_income_breakdown_system(
+    mut economy: ResMut<GameEconomy>,
+    game_time: Res<GameTime>,
+) {
+    // Compute average per-minute rates for merchant trade and bounty tax
+    // (property tax rate is computed directly from current buildings each frame)
+    let minutes = game_time.time_seconds / 60.0;
+    if minutes > 0.0 {
+        economy.merchant_trade_income_per_minute = economy.total_merchant_trade_earned / minutes;
+        economy.bounty_tax_income_per_minute = economy.total_bounty_tax_earned / minutes;
+    } else {
+        economy.merchant_trade_income_per_minute = 0.0;
+        economy.bounty_tax_income_per_minute = 0.0;
+    }
+
+    // Total income per minute is sum of property tax (current) + averaged merchant + bounty
+    economy.income_per_minute = economy.property_tax_income_per_minute
+        + economy.merchant_trade_income_per_minute
+        + economy.bounty_tax_income_per_minute;
 }
 
 /// System: Update kingdom rank based on buildings and heroes

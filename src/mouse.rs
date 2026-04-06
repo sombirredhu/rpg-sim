@@ -16,7 +16,7 @@ pub fn camera_drag_system(
     mouse_input: Res<Input<MouseButton>>,
     mut mouse_motion: EventReader<bevy::input::mouse::MouseMotion>,
     mut camera: Query<(&mut Transform, &mut OrthographicProjection), With<MainCamera>>,
-    mut game_phase: ResMut<GamePhase>,
+    game_phase: Res<GamePhase>,
 ) {
     if !game_phase.game_started || game_phase.build_mode || game_phase.show_build_menu || game_phase.bounty_board_open {
         for _ in mouse_motion.iter() {}
@@ -43,7 +43,7 @@ pub fn camera_drag_system(
 pub fn speed_button_click(
     speed_btn: Query<&Interaction, With<SpeedButton>>,
     mut game_time: ResMut<GameTime>,
-    mut game_phase: ResMut<GamePhase>,
+    game_phase: Res<GamePhase>,
     mut alerts: ResMut<GameAlerts>,
 ) {
     if !game_phase.game_started { return; }
@@ -249,7 +249,6 @@ pub fn map_click_system(
     windows: Res<Windows>,
     camera: Query<(&Camera, &Transform, &OrthographicProjection), With<MainCamera>>,
     mut game_phase: ResMut<GamePhase>,
-    kingdom: Res<KingdomState>,
     heroes: Query<(Entity, &Hero, &HeroStats, &HeroEquipment, &HeroState, &Transform), Without<Building>>,
     buildings: Query<(Entity, &Building, &Transform), Without<Hero>>,
     enemies: Query<(Entity, &Enemy, &EnemyStats, &Transform), (Without<Hero>, Without<Building>)>,
@@ -260,6 +259,7 @@ pub fn map_click_system(
     highlights: Query<(Entity, &BuildingHighlight)>,
     mut building_info_ui: Query<&mut Visibility, With<BuildingInfoUi>>,
     _economy: ResMut<GameEconomy>,
+    button_interactions: Query<&Interaction, (With<Button>, Changed<Interaction>)>,
 ) {
     // Handle right-click for building info
     if mouse_input.just_pressed(MouseButton::Right) {
@@ -283,7 +283,7 @@ pub fn map_click_system(
             };
 
             // Check buildings for info panel
-            for (entity, building, t) in buildings.iter() {
+            for (entity, _building, t) in buildings.iter() {
                 let pos = Vec2::new(t.translation.x, t.translation.y);
                 if (pos - world).length() < 50.0 {
                     // Show building info panel
@@ -315,44 +315,13 @@ pub fn map_click_system(
         return;
     }
 
-    // Handle clicks when build menu is open
+    // Prevent map interaction when clicking HUD buttons
+    if button_interactions.iter().any(|&i| i == Interaction::Clicked) {
+        return;
+    }
+
+    // If build menu is open, ignore world clicks (selection done via UI buttons)
     if game_phase.show_build_menu {
-        // Check if click is within building menu area (simplified - left side panel)
-        let window = match windows.get_primary() {
-            Some(w) => w,
-            None => return,
-        };
-        if let Ok((_cam, cam_t, projection)) = camera.get_single() {
-            let world = match cursor_to_world_2d(window, cam_t, projection) {
-                Some(pos) => pos,
-                None => return,
-            };
-
-            // Building menu is on left side, roughly x < -300
-            if world.x < -300.0 {
-                // Convert world position to approximate menu index
-                // Menu items are stacked vertically starting from y ~ 200
-                let menu_y = (world.y + 200.0) / 20.0; // Approximate item height
-                let menu_index = menu_y.floor() as usize;
-
-                let available = kingdom.rank.available_buildings();
-                if menu_index < available.len() {
-                    let selected_building_type = available[menu_index];
-                    game_phase.selected_building = Some(selected_building_type);
-                    game_phase.build_mode = true;
-                    game_phase.show_build_menu = false;
-                    game_phase.bounty_board_open = false;
-                    alerts.push(format!(
-                        "Selected {} - Click to build, Right-click to cancel",
-                        selected_building_type.display_name()
-                    ));
-                }
-                return;
-            }
-        }
-        // Click outside menu - close it
-        game_phase.show_build_menu = false;
-        alerts.push("Build menu closed".to_string());
         return;
     }
 
@@ -434,7 +403,7 @@ pub fn map_click_system(
                         custom_size: Some(Vec2::new(60.0, 60.0)),
                         ..Default::default()
                     },
-                    transform: Transform::from_translation(Vec3::new(pos.x, pos.y, 4.0)),
+                    transform: Transform::from_translation(Vec3::new(pos.x, pos.y, 10.0)),
                     ..Default::default()
                 })
                 .insert(BuildingHighlight);

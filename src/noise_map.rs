@@ -16,10 +16,10 @@ pub fn generate_terrain_noise(
     width: usize,
     height: usize,
     scale: f64,
-    octaves: usize,
-    persistence: f64,
-    lacunarity: f64,
-    seed: u64,
+    _octaves: usize,
+    _persistence: f64,
+    _lacunarity: f64,
+    _seed: u64,
 ) -> Vec<Vec<NoiseTerrain>> {
     // Create OpenSimplex noise generator
     let noise = OpenSimplex::new();
@@ -59,7 +59,6 @@ pub fn apply_core_zones(
     let height = terrain_map[0].len();
 
     // Apply town center - force clean grass in center area
-    let town_radius_tiles = (180.0 / TILE_SIZE) as isize;
     for zone in CORE_ZONES.iter() {
         if zone.terrain == ZoneTerrain::CleanGrass && zone.radius >= 180.0 {
             let cx = (zone.cx / TILE_SIZE + offset_x as f32) as isize;

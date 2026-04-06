@@ -81,10 +81,10 @@
 - [x] Building construction/upgrade spending
 - [x] Bounty payment spending
 - [x] Emergency repair costs
-- [ ] Signing bonus for high-tier hero recruitment
-- [ ] Manual repair trigger UI (currently auto-repair only)
+- [x] Signing bonus for high-tier hero recruitment
+- [x] Manual repair trigger UI (currently auto-repair only)
 - [x] Treasury reserve warning (below 200 gold alert)
-- [ ] Income-per-minute breakdown UI
+- [x] Income-per-minute breakdown UI
 
 ## 6. Enemies & Threat System (GDD Section 7)
 - [x] Goblin Rabble (weak, spawn in numbers)
@@ -99,8 +99,8 @@
 - [x] New dens spawn in explored zones
 - [x] Threat escalation (dens get stronger over time)
 - [x] Goblin camp → Goblin Stronghold with elite units
-- [ ] Goblin Warlord tier 3 (stronghold → launches direct town raids)
-- [ ] Dynamic spawning from map edges based on difficulty
+- [x] Goblin Warlord tier 3 (stronghold → launches direct town raids)
+- [x] Dynamic spawning from map edges based on difficulty
 - [ ] Weather/storm events increasing spawn difficulty
 
 ## 7. Day/Night Cycle (GDD Section 8)
@@ -183,7 +183,7 @@
 - [x] Heroes have individual personalities affecting behavior
 - [x] Heroes can refuse night missions (low morale)
 - [x] Heroes leave kingdom if idle too long
-- [ ] Heroes fall in love at the inn
+- [x] Heroes fall in love at the inn
 - [x] Heroes flee in panic during overwhelming battles
 - [ ] Heroes have preferences beyond personality (e.g., favorite buildings)
 - [ ] Emergent storytelling events

@@ -4,7 +4,8 @@ use crate::components::*;
 
 /// System: Heroes attack enemies they're targeting
 pub fn hero_attack_system(
-    mut heroes: Query<(Entity, &Hero, &HeroStats, &HeroEquipment, &HeroState, &mut AttackCooldown, &Transform)>,
+    mut commands: Commands,
+    mut heroes: Query<(Entity, &Hero, &HeroStats, &HeroEquipment, &HeroState, &mut AttackCooldown, &Transform, Option<&Stealthed>)>,
     mut enemies: Query<(Entity, &mut EnemyStats, &Transform), (With<Enemy>, Without<Hero>)>,
     active_buffs: Res<ActiveBuffs>,
     building_bonuses: Res<BuildingBonuses>,
@@ -29,7 +30,7 @@ pub fn hero_attack_system(
     // Collect deferred damage: (entity, damage) for AoE splash
     let mut volley_splashes: Vec<(Entity, f32)> = Vec::new();
 
-    for (_hero_entity, hero, stats, equipment, state, mut cooldown, hero_transform) in heroes.iter_mut() {
+    for (hero_entity, hero, stats, equipment, state, mut cooldown, hero_transform, stealthed) in heroes.iter_mut() {
         cooldown.timer -= dt;
 
         if let HeroState::AttackingEnemy { target_entity } = state {
@@ -51,10 +52,15 @@ pub fn hero_attack_system(
                     let mut damage = total_attack - enemy_stats.defense;
 
                     // Class-specific bonuses
+                    let mut is_stealth_backstab = false;
                     match hero.class {
                         HeroClass::Rogue => {
-                            // Backstab: extra crit chance
-                            if rand::random::<f32>() < 0.3 {
+                            // Backstab: extra crit chance, or guaranteed if stealthed
+                            if let Some(_stealth) = stealthed {
+                                // Stealth guarantees a powerful backstab
+                                damage *= 3.0;
+                                is_stealth_backstab = true;
+                            } else if rand::random::<f32>() < 0.3 {
                                 damage *= 2.0;
                             }
                         }
@@ -85,6 +91,19 @@ pub fn hero_attack_system(
                     }
 
                     damage = damage.max(1.0);
+
+                    // If rogue landed a stealth backstab, remove Stealthed component
+                    if is_stealth_backstab {
+                        commands.entity(hero_entity).remove::<Stealthed>();
+                    }
+
+                    // Apply Wizard Tower bonus for mages
+                    if hero.class == HeroClass::Mage {
+                        damage *= building_bonuses.wizard_research_bonus;
+                    }
+
+                    enemy_stats.hp -= damage;
+                    sfx_events.send(SfxEvent::HitImpact);
 
                     // Apply Wizard Tower bonus for mages
                     if hero.class == HeroClass::Mage {

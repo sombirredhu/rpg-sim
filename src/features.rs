@@ -11,7 +11,9 @@ use crate::sprites::{
     monster_den_texture_for_tier,
     spawn_enemy_with_sprite,
 };
+use crate::map_layout::TILE_SIZE;
 use std::collections::HashSet;
+use std::collections::HashMap;
 use std::f32::consts::TAU;
 
 // ================================================================
@@ -49,8 +51,14 @@ pub fn road_placement_system(
             None => return,
         };
 
+        // Snap to tile grid for neat road alignment
+        let snapped_pos = Vec2::new(
+            (world_pos.x / TILE_SIZE).round() * TILE_SIZE,
+            (world_pos.y / TILE_SIZE).round() * TILE_SIZE,
+        );
+
         // Don't place if too close to existing road tile
-        if road_network.is_on_road(world_pos) {
+        if road_network.is_on_road(snapped_pos) {
             return;
         }
 
@@ -61,7 +69,7 @@ pub fn road_placement_system(
         economy.gold -= cost;
         economy.total_spent += cost;
 
-        road_network.tiles.push(world_pos);
+        road_network.tiles.push(snapped_pos);
 
         // Use the grassland stone road texture instead of plain color
         commands.spawn_bundle(SpriteBundle {
@@ -70,7 +78,7 @@ pub fn road_placement_system(
                 custom_size: Some(Vec2::new(12.0, 12.0)),
                 ..Default::default()
             },
-            transform: Transform::from_translation(Vec3::new(world_pos.x, world_pos.y, 1.0)),
+            transform: Transform::from_translation(Vec3::new(snapped_pos.x, snapped_pos.y, 1.0)),
             ..Default::default()
         })
         .insert(Road);
@@ -345,6 +353,7 @@ pub fn merchant_movement_system(
                 let income = merchant.gold_value + bonuses.market_trade_bonus;
                 economy.gold += income;
                 economy.total_earned += income;
+                economy.total_merchant_trade_earned += income;
                 alerts.push(format!("Merchant traded! +{:.0} gold", income));
             }
         } else {

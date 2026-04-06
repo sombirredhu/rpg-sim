@@ -3,6 +3,15 @@ use crate::components::*;
 use crate::sprites::{SpriteAssets, spawn_hero_with_sprite};
 use std::f32::consts::TAU;
 
+/// Returns the signing bonus required for a hero class (0 for basic classes)
+fn get_signing_bonus(class: HeroClass) -> f32 {
+    match class {
+        HeroClass::Mage => 100.0,
+        HeroClass::Archer => 80.0,
+        _ => 0.0,
+    }
+}
+
 /// Set the LPC direction row based on movement direction.
 /// Row 0 = up, 1 = left, 2 = down, 3 = right.
 fn apply_hero_facing(anim: &mut SpriteAnimation, move_dir: Vec2) {
@@ -26,6 +35,7 @@ fn apply_hero_facing(anim: &mut SpriteAnimation, move_dir: Vec2) {
 /// System: Hero AI decision-making
 /// Each hero evaluates bounties, threats, and personal needs to decide their next action
 pub fn hero_ai_system(
+    mut commands: Commands,
     mut heroes: Query<(Entity, &mut Hero, &mut HeroStats, &mut HeroState, &mut HeroDecisionTimer, &Transform)>,
     mut bounty_board: ResMut<BountyBoard>,
     game_time: Res<GameTime>,
@@ -44,9 +54,8 @@ pub fn hero_ai_system(
             bounty_board.unassign_hero(hero_entity);
             *respawn_timer -= dt;
             if *respawn_timer <= 0.0 {
-                *state = HeroState::Idle;
-                stats.into_inner().hp = stats.max_hp * 0.5;
-                hero.morale = 50.0;
+                // Permanent death — hero leaves the kingdom
+                commands.entity(hero_entity).despawn();
             }
             continue;
         }
@@ -419,6 +428,7 @@ pub fn bounty_resolution_system(
                     bounty_id,
                     hero_entity,
                     gold_reward: reward,
+                    target_entity: bounty.target_entity,
                 });
             }
             *state = HeroState::Idle;
@@ -537,6 +547,7 @@ pub fn hero_attraction_system(
     game_time: Res<GameTime>,
     game_phase: Res<GamePhase>,
     time: Res<Time>,
+    mut economy: ResMut<GameEconomy>,
     mut spawn_timer: Local<f32>,
     mut alerts: ResMut<GameAlerts>,
 ) {
@@ -572,6 +583,18 @@ pub fn hero_attraction_system(
     let idx = (rand::random::<f32>() * attracted_classes.len() as f32) as usize;
     let idx = idx.min(attracted_classes.len() - 1);
     let (class, spawn_near) = attracted_classes[idx];
+
+    // Check signing bonus requirement for high-tier heroes
+    let bonus = get_signing_bonus(class);
+    if bonus > 0.0 {
+        if economy.gold < bonus {
+            alerts.push(format!("Recruitment failed: {} requires {}g signing bonus (have {}g)", class.display_name(), bonus, economy.gold));
+            return;
+        }
+        economy.gold -= bonus;
+        economy.total_spent += bonus;
+        alerts.push(format!("Paid {}g signing bonus for new {}!", bonus, class.display_name()));
+    }
 
     let offset = Vec2::new(
         (rand::random::<f32>() - 0.5) * 60.0,
@@ -615,6 +638,250 @@ pub fn hero_morale_system(
         // Resting restores morale
         if matches!(state, HeroState::Resting) {
             hero.morale = (hero.morale + 5.0 * dt).min(100.0);
+        }
+    }
+}
+
+/// Sanctuary radius in world units
+const SANCTUARY_RADIUS: f32 = 150.0;
+/// Channel duration for Sanctuary (seconds)
+const SANCTUARY_CHANNEL: f32 = 2.0;
+/// Cooldown duration for Sanctuary (seconds)
+const SANCTUARY_COOLDOWN: f32 = 20.0;
+
+/// System: Healer AI decides to cast Sanctuary when dead allies are nearby
+pub fn healer_sanctuary_ai_system(
+    mut healers: Query<(Entity, &Hero, &mut HeroState, &Transform, &mut SanctuaryCooldown)>,
+    all_heroes: Query<(&HeroState, &Transform)>,
+    time: Res<Time>,
+    game_time: Res<GameTime>,
+) {
+    let dt = time.delta_seconds() * game_time.speed_multiplier;
+    for (_healer_entity, hero, mut state, transform, mut cooldown) in healers.iter_mut() {
+        if hero.class != HeroClass::Healer {
+            continue;
+        }
+
+        // Update cooldown timer
+        cooldown.timer -= dt;
+        if cooldown.timer > 0.0 {
+            continue;
+        }
+
+        // Skip if already casting
+        if matches!(&*state, HeroState::Casting { .. }) {
+            continue;
+        }
+
+        // Check if any dead hero is within sanctuary radius
+        let healer_pos = Vec2::new(transform.translation.x, transform.translation.y);
+        let mut dead_nearby = false;
+        for (dead_state, dead_transform) in all_heroes.iter() {
+            if let HeroState::Dead { .. } = dead_state {
+                let dead_pos = Vec2::new(dead_transform.translation.x, dead_transform.translation.y);
+                if (dead_pos - healer_pos).length() <= SANCTUARY_RADIUS {
+                    dead_nearby = true;
+                    break;
+                }
+            }
+        }
+
+        if dead_nearby {
+            // Begin casting Sanctuary
+            *state = HeroState::Casting {
+                channel_elapsed: 0.0,
+                channel_duration: SANCTUARY_CHANNEL,
+                focus_entity: Entity::from_raw(0), // no specific target, area effect
+            };
+        }
+    }
+}
+
+/// System: Healer progresses through Sanctuary channel, then emits revive event
+pub fn healer_sanctuary_channel_system(
+    mut healers: Query<(Entity, &Hero, &Transform, &mut SanctuaryCooldown)>,
+    mut hero_states: Query<&mut HeroState, With<Hero>>,
+    time: Res<Time>,
+    game_time: Res<GameTime>,
+    mut revive_events: EventWriter<SanctuaryReviveEvent>,
+) {
+    let dt = time.delta_seconds() * game_time.speed_multiplier;
+    if dt == 0.0 {
+        return;
+    }
+
+    for (healer_entity, hero, healer_transform, mut cooldown) in healers.iter_mut() {
+        if hero.class != HeroClass::Healer {
+            continue;
+        }
+
+        if let Ok(mut state) = hero_states.get_mut(healer_entity) {
+            if let HeroState::Casting {
+                ref mut channel_elapsed,
+                channel_duration,
+                ..
+            } = *state
+            {
+                let new_elapsed = *channel_elapsed + dt;
+
+                // Continue channeling
+                if new_elapsed < channel_duration {
+                    *channel_elapsed = new_elapsed;
+                } else {
+                    // Channel complete — emit revive event
+                    let healer_pos = Vec2::new(healer_transform.translation.x, healer_transform.translation.y);
+                    revive_events.send(SanctuaryReviveEvent { position: healer_pos, healer: healer_entity });
+
+                    // Reset cooldown and state
+                    cooldown.timer = SANCTUARY_COOLDOWN;
+                    *state = HeroState::Idle;
+                }
+            }
+        }
+    }
+}
+
+/// System: Process Sanctuary revive events to bring dead heroes back to life
+pub fn sanctuary_revive_system(
+    mut events: EventReader<SanctuaryReviveEvent>,
+    mut heroes: Query<(&mut Hero, &mut HeroStats, &mut HeroState, &Transform)>,
+    mut alerts: ResMut<GameAlerts>,
+) {
+    for event in events.iter() {
+        let mut revived_count = 0;
+        for (mut hero, mut stats, mut state, transform) in heroes.iter_mut() {
+            // Only revive if currently dead
+            if let HeroState::Dead { .. } = *state {
+                let pos = Vec2::new(transform.translation.x, transform.translation.y);
+                if (pos - event.position).length() <= SANCTUARY_RADIUS {
+                    *state = HeroState::Idle;
+                    stats.hp = stats.max_hp * 0.5;
+                    hero.morale = 50.0;
+                    revived_count += 1;
+                }
+            }
+        }
+        if revived_count > 0 {
+            alerts.push(format!("Sanctuary revived {} hero{}!", revived_count, if revived_count > 1 { "s" } else { "" }));
+        }
+    }
+}
+
+// ============================================================
+// ROGUE STEALTH SYSTEMS
+// ============================================================
+
+/// Stealth duration in seconds
+const STEALTH_DURATION: f32 = 10.0;
+/// Channel duration to enter stealth (seconds)
+const STEALTH_CHANNEL: f32 = 1.0;
+/// Cooldown after stealth ends (seconds)
+const STEALTH_COOLDOWN: f32 = 15.0;
+
+/// System: Rogue AI decides to enter stealth when out of combat and cooldown ready
+pub fn rogue_stealth_ai_system(
+    mut rogues: Query<(Entity, &Hero, &mut HeroState, &mut StealthCooldown)>,
+    time: Res<Time>,
+    game_time: Res<GameTime>,
+) {
+    let dt = time.delta_seconds() * game_time.speed_multiplier;
+    for (_entity, hero, mut state, mut cooldown) in rogues.iter_mut() {
+        if hero.class != HeroClass::Rogue {
+            continue;
+        }
+
+        // Update cooldown timer
+        cooldown.timer -= dt;
+        if cooldown.timer > 0.0 {
+            continue;
+        }
+
+        // Skip if already casting or in combat
+        if matches!(&*state, HeroState::Casting { .. } | HeroState::AttackingEnemy { .. } | HeroState::PursuingBounty { .. }) {
+            continue;
+        }
+
+        // Only stealth when idle or moving without urgent task
+        if matches!(&*state, HeroState::Idle | HeroState::MovingTo { .. }) {
+            // Begin channel to enter stealth
+            *state = HeroState::Casting {
+                channel_elapsed: 0.0,
+                channel_duration: STEALTH_CHANNEL,
+                focus_entity: Entity::from_raw(0),
+            };
+        }
+    }
+}
+
+/// System: Rogue progresses through stealth channel, then becomes stealthed
+pub fn rogue_stealth_channel_system(
+    mut commands: Commands,
+    mut rogues: Query<(Entity, &Hero, &Transform, &mut StealthCooldown)>,
+    mut hero_states: Query<&mut HeroState, With<Hero>>,
+    time: Res<Time>,
+    game_time: Res<GameTime>,
+) {
+    let dt = time.delta_seconds() * game_time.speed_multiplier;
+    if dt == 0.0 { return; }
+
+    for (rogue_entity, hero, _transform, mut cooldown) in rogues.iter_mut() {
+        if hero.class != HeroClass::Rogue { continue; }
+
+        if let Ok(mut state) = hero_states.get_mut(rogue_entity) {
+            if let HeroState::Casting { ref mut channel_elapsed, channel_duration, .. } = *state {
+                let new_elapsed = *channel_elapsed + dt;
+
+                if new_elapsed < channel_duration {
+                    *channel_elapsed = new_elapsed;
+                } else {
+                    // Channel complete — add Stealthed component
+                    commands.entity(rogue_entity).insert(Stealthed { timer: STEALTH_DURATION });
+                    // Start cooldown (prevents re-stealth too soon after this activation)
+                    cooldown.timer = STEALTH_COOLDOWN;
+                    *state = HeroState::Idle;
+                }
+            }
+        }
+    }
+}
+
+/// System: Tick down Stealthed timer and remove when expired or when rogue engages in combat
+pub fn rogue_stealth_tick_system(
+    mut commands: Commands,
+    mut rogues: Query<(Entity, &Hero, &mut Stealthed)>,
+    time: Res<Time>,
+    game_time: Res<GameTime>,
+) {
+    let dt = time.delta_seconds() * game_time.speed_multiplier;
+    if dt == 0.0 { return; }
+
+    for (entity, hero, mut stealthed) in rogues.iter_mut() {
+        if hero.class != HeroClass::Rogue { continue; }
+
+        stealthed.timer -= dt;
+        if stealthed.timer <= 0.0 {
+            commands.entity(entity).remove::<Stealthed>();
+        }
+    }
+}
+
+/// System: When a recovery bounty (Objective type) is completed, revive the target hero if dead.
+pub fn recovery_revive_system(
+    mut events: EventReader<BountyCompletedEvent>,
+    mut heroes: Query<(&mut Hero, &mut HeroStats, &mut HeroState)>,
+    mut alerts: ResMut<GameAlerts>,
+) {
+    for event in events.iter() {
+        // Only process Objective bounties that target a specific hero
+        if let Some(target_entity) = event.target_entity {
+            if let Ok((mut hero, mut stats, mut state)) = heroes.get_mut(target_entity) {
+                if let HeroState::Dead { .. } = *state {
+                    *state = HeroState::Idle;
+                    stats.hp = stats.max_hp * 0.5;
+                    hero.morale = 70.0;
+                    alerts.push(format!("Hero {} has been revived by a recovery bounty!", hero.class.display_name()));
+                }
+            }
         }
     }
 }
@@ -669,6 +936,76 @@ pub fn legendary_hero_glow_system(
             }
         } else {
             commands.entity(glow_entity).despawn();
+        }
+    }
+}
+
+
+use std::collections::HashSet;
+
+/// System: Emergent gameplay - heroes can fall in love at the inn
+/// When two or more heroes are resting at the same inn (near each other),
+/// they gain a small morale boost over time.
+pub fn hero_love_system(
+    resting_query: Query<(Entity, &HeroState, &Transform)>,
+    mut heroes: Query<&mut Hero>,
+    mut alerts: ResMut<GameAlerts>,
+    time: Res<Time>,
+    game_time: Res<GameTime>,
+) {
+    let dt = time.delta_seconds() * game_time.speed_multiplier;
+    if dt == 0.0 {
+        return;
+    }
+
+    // Collect all resting heroes with their positions
+    let mut resting: Vec<(Entity, Vec2)> = Vec::new();
+    for (entity, state, transform) in resting_query.iter() {
+        if let HeroState::Resting = state {
+            let pos = Vec2::new(transform.translation.x, transform.translation.y);
+            resting.push((entity, pos));
+        }
+    }
+
+    let love_radius = 50.0; // within this distance, heroes are "together"
+    let morale_boost = 3.0 * dt; // boost per tick per pair (but applied once per hero per detection)
+
+    // Find all pairs of heroes within love radius
+    let mut paired_entities = HashSet::new();
+    for i in 0..resting.len() {
+        let (entity_i, pos_i) = resting[i];
+        for j in (i + 1)..resting.len() {
+            let (entity_j, pos_j) = resting[j];
+            if pos_i.distance(pos_j) < love_radius {
+                paired_entities.insert(entity_i);
+                paired_entities.insert(entity_j);
+            }
+        }
+    }
+
+    // Apply morale boost to all heroes that have at least one partner
+    for &entity in paired_entities.iter() {
+        if let Ok(mut hero) = heroes.get_mut(entity) {
+            hero.morale = (hero.morale + morale_boost).min(100.0);
+        }
+    }
+
+    // Occasionally send an alert (small chance per tick)
+    if !paired_entities.is_empty() && rand::random::<f32>() < 0.002 {
+        // Find first pair and alert
+        'outer: for i in 0..resting.len() {
+            let (entity_i, pos_i) = resting[i];
+            for j in (i + 1)..resting.len() {
+                let (entity_j, pos_j) = resting[j];
+                if pos_i.distance(pos_j) < love_radius {
+                    if let (Ok(hero_i), Ok(hero_j)) = (heroes.get(entity_i), heroes.get(entity_j)) {
+                        let name_i = hero_i.class.display_name();
+                        let name_j = hero_j.class.display_name();
+                        alerts.push(format!("{} and {} are in love! (+morale)", name_i, name_j));
+                        break 'outer;
+                    }
+                }
+            }
         }
     }
 }

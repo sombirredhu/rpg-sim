@@ -35,6 +35,13 @@ pub struct ExpandButton;
 #[derive(Component)]
 pub struct RoadToolButton;
 
+/// Marker for building menu item buttons in the build menu panel; stores the BuildingType
+#[derive(Component)]
+pub struct BuildingMenuItem(pub BuildingType);
+
+/// Resource storing the main UI font handle
+pub struct UiFont(pub Handle<Font>);
+
 /// Visual highlight ring placed around a selected building
 #[derive(Component)]
 pub struct BuildingHighlight;
@@ -67,9 +74,13 @@ pub struct BuildingInfoUi;
 #[derive(Component)]
 pub struct BuildingInfoText;
 
-/// Resource tracking whether the road tool is currently active (click-paint mode)
-#[derive(Default)]
-pub struct RoadToolActive(pub bool);
+/// Marker for the manual repair button in building info panel
+#[derive(Component)]
+pub struct RepairButton;
+
+/// Text content of the repair button
+#[derive(Component)]
+pub struct RepairButtonText;
 
 // ============================================================
 // HERO COMPONENTS
@@ -357,6 +368,8 @@ pub struct Building {
     pub hp: f32,
     pub max_hp: f32,
     pub is_destroyed: bool,
+    /// Number of health potions stocked at this Alchemist (only used for Alchemist buildings)
+    pub potions_stocked: u32,
 }
 
 impl Building {
@@ -373,6 +386,7 @@ impl Building {
             hp: max_hp,
             max_hp,
             is_destroyed: false,
+            potions_stocked: 0,
         }
     }
 }
@@ -381,6 +395,22 @@ impl Building {
 #[derive(Component, Debug, Clone, Copy)]
 pub struct BuildingVisualTier {
     pub tier: u32,
+}
+
+/// Crafting state for Alchemist buildings: produces health potions over time
+#[derive(Component)]
+pub struct AlchemistCraft {
+    pub timer: f32,
+    pub interval: f32, // seconds per potion (varies by tier)
+}
+
+impl Default for AlchemistCraft {
+    fn default() -> Self {
+        Self {
+            timer: 0.0,
+            interval: 60.0, // default for tier 1
+        }
+    }
 }
 
 // ============================================================
@@ -617,11 +647,20 @@ pub struct Bounty {
 // ============================================================
 
 #[derive(Serialize, Deserialize, Clone)]
+#[serde(default)]
 pub struct GameEconomy {
     pub gold: f32,
     pub income_per_minute: f32,
     pub total_earned: f32,
     pub total_spent: f32,
+    // Cumulative gold earned from each source (for breakdown)
+    pub total_property_tax_earned: f32,
+    pub total_merchant_trade_earned: f32,
+    pub total_bounty_tax_earned: f32,
+    // Income breakdown per minute (computed from totals / time)
+    pub property_tax_income_per_minute: f32,
+    pub merchant_trade_income_per_minute: f32,
+    pub bounty_tax_income_per_minute: f32,
 }
 
 impl Default for GameEconomy {
@@ -631,6 +670,12 @@ impl Default for GameEconomy {
             income_per_minute: 0.0,
             total_earned: 500.0,
             total_spent: 0.0,
+            total_property_tax_earned: 0.0,
+            total_merchant_trade_earned: 0.0,
+            total_bounty_tax_earned: 0.0,
+            property_tax_income_per_minute: 0.0,
+            merchant_trade_income_per_minute: 0.0,
+            bounty_tax_income_per_minute: 0.0,
         }
     }
 }
@@ -908,6 +953,50 @@ pub struct ArcaneSurgeEffect {
     pub timer: f32,
 }
 
+/// Cooldown timer for Rogue's Stealth ability
+#[derive(Component)]
+pub struct StealthCooldown {
+    pub timer: f32,
+    pub cooldown: f32,
+}
+
+impl Default for StealthCooldown {
+    fn default() -> Self {
+        Self {
+            timer: 0.0,
+            cooldown: 15.0,
+        }
+    }
+}
+
+/// Marker component indicating a hero is currently stealthed
+#[derive(Component)]
+pub struct Stealthed {
+    pub timer: f32,
+}
+
+/// Event fired when a Healer completes Sanctuary channel to revive nearby dead heroes
+pub struct SanctuaryReviveEvent {
+    pub position: Vec2,
+    pub healer: Entity,
+}
+
+/// Cooldown timer for Healer's Sanctuary ability (revive dead heroes)
+#[derive(Component)]
+pub struct SanctuaryCooldown {
+    pub timer: f32,
+    pub cooldown: f32, // 20 seconds
+}
+
+impl Default for SanctuaryCooldown {
+    fn default() -> Self {
+        Self {
+            timer: 0.0,
+            cooldown: 20.0,
+        }
+    }
+}
+
 // ============================================================
 // UI MARKER COMPONENTS
 // ============================================================
@@ -949,6 +1038,25 @@ pub struct SpeedText;
 pub struct MainCamera;
 
 // ============================================================
+// ECONOMY BREAKDOWN UI MARKERS
+// ============================================================
+
+#[derive(Component)]
+pub struct EconomyButton;
+
+#[derive(Component)]
+pub struct EconomyBreakdownPanel;
+
+/// Marker component for income breakdown lines with variants for each source
+#[derive(Component, PartialEq)]
+pub enum EconIncomeLine {
+    Tax,
+    Trade,
+    Bounty,
+    Total,
+}
+
+// ============================================================
 // GAME EVENTS
 // ============================================================
 
@@ -956,6 +1064,7 @@ pub struct BountyCompletedEvent {
     pub bounty_id: u32,
     pub hero_entity: Entity,
     pub gold_reward: f32,
+    pub target_entity: Option<Entity>, // If this bounty was to revive a specific hero
 }
 
 pub struct HeroDeathEvent {

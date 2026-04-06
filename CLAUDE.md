@@ -117,5 +117,6 @@ After completing every task, you **must** troubleshoot the game by running it:
    - Fix the issue(s) in the code
    - Re-run `cargo run` to verify the fix
 4. Repeat step 3 until the game runs smoothly
+5. After testing alwasy close the game app (which was created with `cargo run`)
 
 Do not consider a task complete until the game runs without issues after your changes.

@@ -6,7 +6,6 @@
 use bevy::prelude::*;
 
 use crate::components::*;
-use crate::noise_map::{generate_terrain_noise, apply_core_zones, tile_to_world, NoiseTerrain};
 
 #[derive(Clone)]
 pub struct BuildingSpriteSet {
@@ -739,6 +738,8 @@ pub fn spawn_hero_with_sprite(
         .insert(anim)
         .insert(anim_set)
         .insert(ArcaneSurgeCooldown::default())
+        .insert(SanctuaryCooldown::default())
+        .insert(StealthCooldown::default())
         .id()
 }
 
@@ -954,7 +955,7 @@ pub fn spawn_building_with_sprite(
     let building = Building::new(building_type);
     let tier = building.tier;
 
-    commands
+    let mut entity = commands
         .spawn_bundle(SpriteBundle {
             texture: building_texture_for_tier(sprites, building_type, tier),
             transform: Transform::from_translation(position)
@@ -962,8 +963,17 @@ pub fn spawn_building_with_sprite(
             ..Default::default()
         })
         .insert(building)
-        .insert(BuildingVisualTier { tier })
-        .id()
+        .insert(BuildingVisualTier { tier });
+
+    // Add AlchemistCraft component for Alchemist buildings
+    if building_type == BuildingType::Alchemist {
+        entity.insert(AlchemistCraft {
+            timer: 0.0,
+            interval: 60.0, // base 60 seconds per potion (tier 1)
+        });
+    }
+
+    entity.id()
 }
 
 /// Keep building sprites in sync with current building tier.
@@ -1010,6 +1020,7 @@ pub fn sync_monster_den_tier_visuals(
 
 pub fn spawn_ground_tiles(mut commands: Commands, sprites: Res<SpriteAssets>) {
     use crate::map_layout::{TILE_SIZE, GRID_W, GRID_H};
+    use crate::noise_map::{generate_terrain_noise, apply_core_zones, tile_to_world, NoiseTerrain};
 
     // Calculate map dimensions in tiles
     let map_width = GRID_W;
@@ -1062,7 +1073,6 @@ pub fn spawn_terrain_overlays(mut commands: Commands, sprites: Res<SpriteAssets>
         RIVER_SEGMENTS, RIVER_OVERLAY_SIZE, RIVER_STEP,
         RUIN_POSITIONS, CORE_MONSTER_DENS, RuinType,
     };
-    use crate::noise_map::{NoiseTerrain, generate_terrain_noise, apply_core_zones, tile_to_world, world_to_tile};
 
     // Spawn a semi-transparent terrain overlay sprite.
     let spawn_overlay = |commands: &mut Commands, tex: Handle<Image>, pos: Vec2,

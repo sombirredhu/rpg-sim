@@ -6,6 +6,7 @@ use crate::sprites::{
     monster_den_texture_for_tier,
     spawn_enemy_with_sprite,
 };
+use crate::map_layout::MAP_HALF_EXTENT;
 use std::f32::consts::TAU;
 
 /// System: Spawn enemies from monster dens using real sprites
@@ -51,7 +52,7 @@ pub fn monster_den_spawn_system(
 /// System: Enemy AI - wander and attack heroes/buildings
 pub fn enemy_ai_system(
     mut enemies: Query<(Entity, &Enemy, &EnemyStats, &mut EnemyAi, &mut Transform, Option<&mut SpriteAnimation>), Without<Hero>>,
-    heroes: Query<(Entity, &Transform), (With<Hero>, Without<Enemy>)>,
+    heroes: Query<(Entity, &Transform), (With<Hero>, Without<Enemy>, Without<Stealthed>)>,
     buildings: Query<(Entity, &Transform, &Building), (Without<Enemy>, Without<Hero>)>,
     game_time: Res<GameTime>,
     time: Res<Time>,
@@ -160,6 +161,11 @@ pub fn threat_escalation_system(
                 den.enemy_type = EnemyType::GoblinElite;
             }
 
+            // At tier 3, the den spawns a Goblin Warlord ( BossWarlord ) that raids the town directly
+            if den.threat_tier >= 3 {
+                den.enemy_type = EnemyType::BossWarlord;
+            }
+
             alerts.push(format!(
                 "Threat escalated! {} den is now tier {}!",
                 den.enemy_type.display_name(),
@@ -252,6 +258,95 @@ pub fn enemy_death_system(
             }
 
             commands.entity(entity).despawn();
+        }
+    }
+}
+
+/// System: Dynamically spawn enemies from map edges based on difficulty
+/// Spawns enemy waves at intervals, scaling with game day and threat level.
+pub fn edge_spawn_system(
+    mut commands: Commands,
+    game_time: Res<GameTime>,
+    kingdom: Res<KingdomState>,
+    sprites: Res<SpriteAssets>,
+    time: Res<Time>,
+    mut spawn_timer: Local<f32>,
+) {
+    let dt = time.delta_seconds() * game_time.speed_multiplier;
+    if dt == 0.0 {
+        return;
+    }
+
+    // Spawn interval decreases with speed multiplier and scales with game progress
+    let base_interval = 30.0; // seconds at 1x speed
+    let interval = base_interval / game_time.speed_multiplier.max(1.0);
+    *spawn_timer -= dt;
+    if *spawn_timer <= 0.0 {
+        *spawn_timer = interval;
+
+        // Determine wave size based on current day and kingdom rank (difficulty)
+        let day_factor = (game_time.current_day as f32 / 20.0).max(1.0);
+        let rank_factor = match kingdom.rank {
+            KingdomRank::Hamlet => 1.0,
+            KingdomRank::Village => 1.2,
+            KingdomRank::Town => 1.5,
+            KingdomRank::City => 1.8,
+            KingdomRank::Kingdom => 2.2,
+        };
+        let wave_size = (3.0 * day_factor * rank_factor).ceil() as usize;
+
+        // Spawn enemies at random map edge positions
+        for _ in 0..wave_size {
+            // Choose a random side (0=top,1=bottom,2=right,3=left)
+            let side = rand::random::<u8>() % 4;
+            let map_edge = MAP_HALF_EXTENT as f32 - 50.0; // ensure within bounds
+            let spawn_x = rand::random::<f32>() * map_edge * 2.0 - map_edge;
+            let spawn_y = rand::random::<f32>() * map_edge * 2.0 - map_edge;
+            let (x, y) = match side {
+                0 => (spawn_x, map_edge),      // top
+                1 => (spawn_x, -map_edge),     // bottom
+                2 => (map_edge, spawn_y),      // right
+                _ => (-map_edge, spawn_y),     // left
+            };
+
+            // Choose enemy type based on simple progression
+            // Early game: Goblins; later: mix of Bandits, Trolls; end: tougher enemies
+            let enemy_type = if game_time.current_day < 10 {
+                EnemyType::Goblin
+            } else if game_time.current_day < 25 {
+                if rand::random::<f32>() < 0.3 {
+                    EnemyType::Bandit
+                } else {
+                    EnemyType::Goblin
+                }
+            } else if game_time.current_day < 50 {
+                // Include trolls occasionally
+                let r = rand::random::<f32>();
+                if r < 0.4 {
+                    EnemyType::Goblin
+                } else if r < 0.7 {
+                    EnemyType::Bandit
+                } else {
+                    EnemyType::Troll
+                }
+            } else {
+                // Late game: elites
+                let r = rand::random::<f32>();
+                if r < 0.3 {
+                    EnemyType::GoblinElite
+                } else if r < 0.6 {
+                    EnemyType::Bandit
+                } else {
+                    EnemyType::Troll
+                }
+            };
+
+            spawn_enemy_with_sprite(
+                &mut commands,
+                &sprites,
+                enemy_type,
+                Vec3::new(x, y, 10.0),
+            );
         }
     }
 }
