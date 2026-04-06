@@ -29,6 +29,7 @@ pub fn road_placement_system(
     camera: Query<(&Camera, &Transform, &OrthographicProjection), With<MainCamera>>,
     mut economy: ResMut<GameEconomy>,
     mut road_network: ResMut<RoadNetwork>,
+    mut road_drag_state: ResMut<RoadDragState>,
     game_phase: Res<GamePhase>,
     sprites: Res<SpriteAssets>,
     mut _alerts: ResMut<GameAlerts>,
@@ -36,9 +37,6 @@ pub fn road_placement_system(
     // Place roads while holding R key OR road tool is active
     let tool_active = keyboard.pressed(KeyCode::R) || game_phase.road_tool_active;
     if game_phase.build_mode || game_phase.show_build_menu || game_phase.bounty_board_open || !tool_active {
-        return;
-    }
-    if !mouse_input.pressed(MouseButton::Left) {
         return;
     }
 
@@ -58,32 +56,119 @@ pub fn road_placement_system(
             (world_pos.y / TILE_SIZE).round() * TILE_SIZE,
         );
 
-        // Don't place if too close to existing road tile
-        if road_network.is_on_road(snapped_pos) {
+        // Handle mouse events for drag painting
+        if mouse_input.just_pressed(MouseButton::Left) {
+            // Start new drag and place first tile
+            road_drag_state.last_grid_pos = Some(snapped_pos);
+            attempt_place_road(
+                &mut commands,
+                &mut economy,
+                &mut road_network,
+                &sprites,
+                snapped_pos,
+            );
             return;
         }
 
-        let cost = 5.0;
-        if economy.gold < cost {
+        if mouse_input.pressed(MouseButton::Left) {
+            if let Some(last_pos) = road_drag_state.last_grid_pos {
+                if last_pos != snapped_pos {
+                    // Draw line from last position to current position
+                    let line_tiles = road_line_tiles(last_pos, snapped_pos);
+                    for pos in line_tiles {
+                        // Skip if already on road (or if it's the last_pos which was already placed)
+                        if road_network.is_on_road(pos) {
+                            continue;
+                        }
+                        attempt_place_road(
+                            &mut commands,
+                            &mut economy,
+                            &mut road_network,
+                            &sprites,
+                            pos,
+                        );
+                    }
+                    // Update drag state to current position
+                    road_drag_state.last_grid_pos = Some(snapped_pos);
+                }
+            }
             return;
         }
-        economy.gold -= cost;
-        economy.total_spent += cost;
 
-        road_network.tiles.push(snapped_pos);
-
-        // Use the grassland stone road texture instead of plain color
-        commands.spawn_bundle(SpriteBundle {
-            texture: sprites.road_stone_tex.clone(),
-            sprite: Sprite {
-                custom_size: Some(Vec2::new(12.0, 12.0)),
-                ..Default::default()
-            },
-            transform: Transform::from_translation(Vec3::new(snapped_pos.x, snapped_pos.y, 1.0)),
-            ..Default::default()
-        })
-        .insert(Road);
+        // Mouse released: clear drag state
+        if mouse_input.just_released(MouseButton::Left) {
+            road_drag_state.last_grid_pos = None;
+        }
     }
+}
+
+/// Place a single road tile if affordable and not already placed.
+/// Returns true if placed, false otherwise.
+fn attempt_place_road(
+    commands: &mut Commands,
+    economy: &mut GameEconomy,
+    road_network: &mut RoadNetwork,
+    sprites: &SpriteAssets,
+    pos: Vec2,
+) {
+    let cost = 5.0;
+    if economy.gold < cost {
+        return;
+    }
+    economy.gold -= cost;
+    economy.total_spent += cost;
+
+    road_network.tiles.push(pos);
+
+    // Spawn road sprite
+    commands.spawn_bundle(SpriteBundle {
+        texture: sprites.road_stone_tex.clone(),
+        sprite: Sprite {
+            custom_size: Some(Vec2::new(12.0, 12.0)),
+            ..Default::default()
+        },
+        transform: Transform::from_translation(Vec3::new(pos.x, pos.y, 1.0)),
+        ..Default::default()
+    })
+    .insert(Road);
+}
+
+/// Returns all road tile positions (snapped to grid) along the line from start to end inclusive.
+/// Uses Bresenham's line algorithm on grid coordinates.
+fn road_line_tiles(start: Vec2, end: Vec2) -> Vec<Vec2> {
+    let tile_size = TILE_SIZE;
+    let x0 = (start.x / tile_size) as i32;
+    let y0 = (start.y / tile_size) as i32;
+    let x1 = (end.x / tile_size) as i32;
+    let y1 = (end.y / tile_size) as i32;
+
+    let mut points = Vec::new();
+    let mut x = x0;
+    let mut y = y0;
+
+    let dx = (x1 - x0).abs();
+    let dy = (y1 - y0).abs();
+    let sx = if x0 < x1 { 1 } else { -1 };
+    let sy = if y0 < y1 { 1 } else { -1 };
+    let mut err = dx - dy;
+
+    loop {
+        points.push(Vec2::new(x as f32 * tile_size, y as f32 * tile_size));
+        if x == x1 && y == y1 {
+            break;
+        }
+        let e2 = 2 * err;
+        if e2 > -dy {
+            err -= dy;
+            x += sx;
+        }
+        if e2 < dx {
+            err += dx;
+            y += sy;
+        }
+    }
+
+    points
 }
 
 // ================================================================
@@ -444,7 +529,7 @@ pub fn trade_caravan_spawn_system(
 /// Moves trade caravans toward town, applies rare item buff on arrival
 pub fn trade_caravan_movement_system(
     mut commands: Commands,
-    mut caravans: Query<(Entity, &mut TradeCaravan, &mut Transform)>,
+    mut caravans: Query<(Entity, &mut TradeCaravan, &mut Transform), (Without<Hero>, Without<Enemy>)>,
     mut economy: ResMut<GameEconomy>,
     mut active_buffs: ResMut<ActiveBuffs>,
     mut heroes: Query<(&mut Hero, &mut HeroStats)>,

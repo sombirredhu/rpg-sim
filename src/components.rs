@@ -1364,6 +1364,12 @@ impl RoadNetwork {
     }
 }
 
+/// Resource to track road painting drag state for continuous placement
+#[derive(Default)]
+pub struct RoadDragState {
+    pub last_grid_pos: Option<Vec2>,
+}
+
 // ============================================================
 // RESOURCE NODES
 // ============================================================

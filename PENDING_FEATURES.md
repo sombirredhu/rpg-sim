@@ -66,7 +66,7 @@
 - [x] 30% speed boost on roads
 - [x] Road connection bonuses (market tax boost, blacksmith craft speed)
 - [x] Bridge building to cross rivers/open new map sectors
-- [ ] Drag-and-drop road placement (snap-to-grid)
+- [WIP] Drag-and-drop road placement (snap-to-grid)
 
 ## 5. Economy & Resources (GDD Section 6)
 - [x] Property tax from buildings
