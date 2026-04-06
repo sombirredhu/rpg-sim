@@ -651,13 +651,27 @@ const SANCTUARY_COOLDOWN: f32 = 20.0;
 
 /// System: Healer AI decides to cast Sanctuary when dead allies are nearby
 pub fn healer_sanctuary_ai_system(
-    mut healers: Query<(Entity, &Hero, &mut HeroState, &Transform, &mut SanctuaryCooldown)>,
-    all_heroes: Query<(&HeroState, &Transform)>,
+    mut query_set: QuerySet<(
+        // q0: mutable access to healers (state, cooldown)
+        QueryState<(Entity, &Hero, &mut HeroState, &Transform, &mut SanctuaryCooldown)>,
+        // q1: immutable snapshot of all heroes' states and positions
+        QueryState<(&HeroState, &Transform)>,
+    )>,
     time: Res<Time>,
     game_time: Res<GameTime>,
 ) {
     let dt = time.delta_seconds() * game_time.speed_multiplier;
-    for (_healer_entity, hero, mut state, transform, mut cooldown) in healers.iter_mut() {
+
+    // First, collect positions of all dead heroes (immutable snapshot)
+    let dead_positions: Vec<Vec2> = query_set
+        .q1()
+        .iter()
+        .filter(|(state, _)| matches!(state, HeroState::Dead { .. }))
+        .map(|(_, transform)| Vec2::new(transform.translation.x, transform.translation.y))
+        .collect();
+
+    // Then process each healer with mutable access
+    for (_healer_entity, hero, mut state, transform, mut cooldown) in query_set.q0().iter_mut() {
         if hero.class != HeroClass::Healer {
             continue;
         }
@@ -675,16 +689,9 @@ pub fn healer_sanctuary_ai_system(
 
         // Check if any dead hero is within sanctuary radius
         let healer_pos = Vec2::new(transform.translation.x, transform.translation.y);
-        let mut dead_nearby = false;
-        for (dead_state, dead_transform) in all_heroes.iter() {
-            if let HeroState::Dead { .. } = dead_state {
-                let dead_pos = Vec2::new(dead_transform.translation.x, dead_transform.translation.y);
-                if (dead_pos - healer_pos).length() <= SANCTUARY_RADIUS {
-                    dead_nearby = true;
-                    break;
-                }
-            }
-        }
+        let dead_nearby = dead_positions.iter().any(|dead_pos| {
+            (*dead_pos - healer_pos).length() <= SANCTUARY_RADIUS
+        });
 
         if dead_nearby {
             // Begin casting Sanctuary

@@ -29,6 +29,8 @@ cargo build            # Build only
 - **NEVER merge branches into main unless the user explicitly asks you to.**
 - Work on feature branches when needed.
 - Always commit changes before switching branches.
+- Do not change, checkout, merge, or interact with any branch other than the current one unless explicitly instructed by the user.
+- All testing must be performed only within the current branch.
 
 ## Project Structure
 
@@ -118,5 +120,19 @@ After completing every task, you **must** troubleshoot the game by running it:
    - Re-run `cargo run` to verify the fix
 4. Repeat step 3 until the game runs smoothly
 5. After testing alwasy close the game app (which was created with `cargo run`)
+
+## Definition: "Start creating pending feature"
+1. Switch to a dedicated feature branch (create one if it does not exist).
+2. Select the next feature from pending_features.md.
+3. Implement the feature.
+4. Validate alignment with the GDD; if not aligned, adjust or redefine the feature and repeat until aligned.
+5. Test the game within the current branch and fix any issues.
+6. If instructed to create multiple/all pending features, repeat the above steps sequentially for each feature; otherwise, stop after one.
+
+## Context handling:
+1. After completing a feature (implementation + testing), discard its working context before starting the next feature.
+2. Do not reuse or reference previous feature-specific context when working on a new feature.
+3. Retain only global instructions (e.g., GDD, branch rules, system constraints).
+4. If full context clearing is not possible, strictly limit active context to the current feature only.
 
 Do not consider a task complete until the game runs without issues after your changes.

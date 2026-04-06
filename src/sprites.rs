@@ -955,15 +955,13 @@ pub fn spawn_building_with_sprite(
     let building = Building::new(building_type);
     let tier = building.tier;
 
-    let mut entity = commands
-        .spawn_bundle(SpriteBundle {
-            texture: building_texture_for_tier(sprites, building_type, tier),
-            transform: Transform::from_translation(position)
-                .with_scale(Vec3::splat(building_scale_for_tier(building_type, tier))),
-            ..Default::default()
-        })
-        .insert(building)
-        .insert(BuildingVisualTier { tier });
+    let mut entity = commands.spawn_bundle(SpriteBundle {
+        texture: building_texture_for_tier(sprites, building_type, tier),
+        transform: Transform::from_translation(position)
+            .with_scale(Vec3::splat(building_scale_for_tier(building_type, tier))),
+        ..Default::default()
+    });
+    entity.insert(building).insert(BuildingVisualTier { tier });
 
     // Add AlchemistCraft component for Alchemist buildings
     if building_type == BuildingType::Alchemist {

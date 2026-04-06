@@ -572,6 +572,7 @@ pub fn load_game_system(world: &mut World) {
             hp: b.hp,
             max_hp: b.max_hp,
             is_destroyed: b.is_destroyed,
+            potions_stocked: 0,
         };
         let pos = Vec3::new(b.x, b.y, 5.0);
         world.spawn()

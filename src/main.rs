@@ -186,6 +186,9 @@ fn main() {
         .add_system(features::objective_bounty_system)
         .add_system(features::era_siege_system)
         .add_system(features::torch_defense_system)
+        // Alchemist potion crafting and consumption
+        .add_system(features::alchemist_craft_system)
+        .add_system(features::hero_potion_consumption_system)
         .add_system(features::sprite_animation_system)
         .add_system(features::animation_mode_system)
         .add_system(features::enemy_animation_mode_system)

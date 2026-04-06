@@ -369,6 +369,7 @@ pub struct Building {
     pub max_hp: f32,
     pub is_destroyed: bool,
     /// Number of health potions stocked at this Alchemist (only used for Alchemist buildings)
+    #[serde(default)]
     pub potions_stocked: u32,
 }
 

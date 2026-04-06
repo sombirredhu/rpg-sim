@@ -12,7 +12,7 @@
 - [x] Set bounties to influence hero behavior
 - [x] Manage gold economy (income vs. expenditure)
 - [x] Survive threats (enemy waves, boss raids)
-- [x] Plan road networks connecting buildings (roads exist but no connection bonus)
+- [x] Plan road networks connecting buildings (with connection bonuses)
 - [x] Expand map perimeter to reveal new zones (E key, gold cost, rank-gated)
 
 ## 2. Indirect Control System (GDD Section 3)
@@ -20,7 +20,7 @@
 - [x] Bounty Board with 4 types: Monster, Exploration, Objective, Resource
 - [x] Auto-bounty creation for monster dens
 - [x] Manual bounty placement (Q key)
-- [x] Bounty Board UI panel (currently keyboard-only, no visual list)
+- [x] Bounty Board UI panel (visual panel)
 - [x] Dynamic bounty amount adjustment UI
 - [x] Bounty pay-on-completion visibility / ROI display
 
@@ -35,13 +35,9 @@
 - [x] Archer Volley (bonus damage at range)
 - [x] Mage Arcane Surge (bonus damage)
 - [x] Warrior Fortify (consistent damage bonus)
-- [x] Healer healing nearby allies
-- [x] Warrior Fortify as damage reduction AURA for nearby allies
-- [x] Archer Volley as actual AoE arrow rain on clustered enemies
-- [x] Mage Arcane Surge as channelled multi-target blast
-- [ ] Healer Sanctuary ability (healing pulse that revives fallen heroes)
-- [ ] Rogue stealth mechanic (enters camps unseen, priority kills)
-- [ ] Hero death with permanent loss if recovery bounty is neglected (partially done - respawn timer exists but no permanent death)
+- [x] Healer Sanctuary ability (healing pulse that revives fallen heroes)
+- [x] Rogue stealth mechanic (enters camps unseen, priority kills)
+- [x] Hero death with permanent loss if recovery bounty is neglected (implemented via dead state + recovery bounty mechanic)
 
 ## 4. Town Buildings & Structures (GDD Section 5)
 - [x] All 9 buildings: TownHall, Inn, Market, Temple, GuardTower, WizardTower, Blacksmith, Alchemist, Barracks
@@ -62,7 +58,7 @@
 - [x] Wizard Tower: mage damage bonus
 - [x] Market Tier 2: trade caravans with rare items
 - [x] Equipment crafting at Blacksmith
-- [ ] Potion crafting at Alchemist
+- [x] Potion crafting at Alchemist
 - [ ] Barracks squad formation bounties
 
 ### Road Network
@@ -82,7 +78,7 @@
 - [x] Bounty payment spending
 - [x] Emergency repair costs
 - [x] Signing bonus for high-tier hero recruitment
-- [x] Manual repair trigger UI (currently auto-repair only)
+- [x] Manual repair trigger UI
 - [x] Treasury reserve warning (below 200 gold alert)
 - [x] Income-per-minute breakdown UI
 
@@ -113,7 +109,7 @@
 - [x] Torch/light defense bonus near buildings at night
 - [x] Merchant caravans only during daytime
 - [x] Torch halo visual effects around buildings at night
-- [ ] Proper day/night lighting with real-time colour overlay
+- [x] Proper day/night lighting with real-time colour overlay
 
 ## 8. User Interface (GDD Section 9)
 - [x] Gold counter with income-per-minute
@@ -128,7 +124,7 @@
 - [ ] 48x48pt tap targets for accessibility
 - [ ] Long-press contextual info cards with quick-action buttons
 - [ ] Floating action button for Bounty Board
-- [ ] Visual Bounty Board panel with categorized bounty list
+- [x] Visual Bounty Board panel with categorized bounty list
 - [ ] Sun/moon arc day/night indicator
 - [x] Hero panel collapse/expand toggle (H key)
 
@@ -166,7 +162,7 @@
 - [ ] Town ambience (merchants calling, blacksmith hammering, temple bells)
 - [ ] Boss raid siren horn effect
 - [x] Main menu screen with Start New Game, Resume Game, Settings, and Quit buttons
-- [x] Settings sub-menu with toggleable options
+- [ ] Settings sub-menu with toggleable options (currently placeholder UI only)
 - [x] Save/Load functionality for resume game
 - [ ] Settings with actual sliders/toggles (SFX volume, music volume, camera speed)
 - [x] Hide in-game HUD until game is started from menu

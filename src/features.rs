@@ -1638,3 +1638,128 @@ pub fn map_expansion_system(
         .insert(MapDecoration);
     }
 }
+
+// ============================================================
+// 18. ALCHEMIST POTION CRAFTING
+// ============================================================
+
+/// Alchemist building produces health potions over time based on tier.
+/// Tier 1: 1 potion per 60s, Tier 2: 1 per 45s, Tier 3: 1 per 30s.
+pub fn alchemist_craft_system(
+    mut buildings: Query<(&mut Building, &mut AlchemistCraft)>,
+    time: Res<Time>,
+    game_time: Res<GameTime>,
+) {
+    let dt = time.delta_seconds() * game_time.speed_multiplier;
+    for (mut building, mut craft) in buildings.iter_mut() {
+        if building.is_destroyed {
+            craft.timer = 0.0;
+            continue;
+        }
+
+        // Set production rate by tier
+        craft.interval = match building.tier {
+            1 => 60.0,
+            2 => 45.0,
+            3 => 30.0,
+            _ => 60.0,
+        };
+
+        craft.timer -= dt;
+        if craft.timer <= 0.0 {
+            building.potions_stocked += 1;
+            craft.timer = craft.interval;
+        }
+    }
+}
+
+/// Heroes with low HP automatically consume potions from the nearest Alchemist.
+pub fn hero_potion_consumption_system(
+    mut heroes: Query<(Entity, &mut Hero, &mut HeroStats, &Transform)>,
+    mut buildings: Query<(Entity, &mut Building, &Transform)>,
+    time: Res<Time>,
+    game_time: Res<GameTime>,
+    mut alerts: ResMut<GameAlerts>,
+    mut cooldown_map: Local<HashMap<Entity, f32>>,
+) {
+    let dt = time.delta_seconds() * game_time.speed_multiplier;
+    const CONSUME_COOLDOWN: f32 = 10.0;
+    const LOW_HP_THRESHOLD: f32 = 0.4; // 40% HP
+    const MAX_RANGE: f32 = 100.0;
+
+    // Update cooldown timers
+    for (_, timer) in cooldown_map.iter_mut() {
+        *timer -= dt;
+    }
+
+    // Collect alchemist building positions (immutable snapshot)
+    let alchemists: Vec<(Entity, Vec2)> = buildings
+        .iter()
+        .filter(|(_, b, _)| {
+            b.building_type == BuildingType::Alchemist
+                && !b.is_destroyed
+                && b.potions_stocked > 0
+        })
+        .map(|(e, _, t)| (e, Vec2::new(t.translation.x, t.translation.y)))
+        .collect();
+
+    if alchemists.is_empty() {
+        return;
+    }
+
+    // Process each hero
+    for (hero_entity, mut hero, mut stats, hero_transform) in heroes.iter_mut() {
+        // Cooldown check
+        let ready = match cooldown_map.get(&hero_entity) {
+            Some(t) => *t <= 0.0,
+            None => true,
+        };
+        if !ready {
+            continue;
+        }
+
+        // HP threshold check
+        if stats.hp >= stats.max_hp * LOW_HP_THRESHOLD {
+            continue;
+        }
+
+        let hero_pos = Vec2::new(hero_transform.translation.x, hero_transform.translation.y);
+
+        // Find nearest alchemist
+        let mut nearest: Option<Entity> = None;
+        let mut nearest_dist: f32 = MAX_RANGE;
+        for &(b_entity, b_pos) in &alchemists {
+            let dist = (b_pos - hero_pos).length();
+            if dist < nearest_dist {
+                nearest_dist = dist;
+                nearest = Some(b_entity);
+            }
+        }
+
+        if let Some(b_entity) = nearest {
+            // Check if still has stock using mutable query
+            if let Ok((_, mut building, _)) = buildings.get_mut(b_entity) {
+                if building.potions_stocked > 0 {
+                    let old_hp = stats.hp;
+                    // Heal amount based on Alchemist tier
+                    let heal_amount = match building.tier {
+                        1 => 50.0,
+                        2 => 100.0,
+                        3 => 150.0,
+                        _ => 50.0,
+                    };
+                    stats.hp = (stats.hp + heal_amount).min(stats.max_hp);
+                    building.potions_stocked -= 1;
+                    cooldown_map.insert(hero_entity, CONSUME_COOLDOWN);
+                    alerts.push(format!(
+                        "{} used a health potion: {:.0} -> {:.0} HP",
+                        hero.class.display_name(),
+                        old_hp,
+                        stats.hp
+                    ));
+                }
+            }
+        }
+    }
+}
+
