@@ -12,6 +12,7 @@ use crate::sprites::{
     spawn_enemy_with_sprite,
 };
 use crate::map_layout::TILE_SIZE;
+use rand::{Rng, seq::SliceRandom};
 use std::collections::HashSet;
 use std::collections::HashMap;
 use std::f32::consts::TAU;
@@ -610,6 +611,7 @@ pub fn resource_bounty_system(
     mut bounty_board: ResMut<BountyBoard>,
     nodes: Query<(Entity, &ResourceNode, &Transform)>,
     legacy: Res<LegacyUpgrades>,
+    kingdom: Res<KingdomState>,
 ) {
     for (entity, node, transform) in nodes.iter() {
         if !node.is_active {
@@ -621,6 +623,10 @@ pub fn resource_bounty_system(
                 let mut reward = 15.0;
                 let reduction = 1.0 - legacy.bounty_cost_reduction / 100.0;
                 reward *= reduction;
+                // Apply Double Bounties challenge modifier
+                if kingdom.challenge_modifier == ChallengeModifier::DoubleBounties {
+                    reward *= 2.0;
+                }
                 bounty_board.add_bounty(BountyType::Resource, reward, pos, Some(entity), 1, 1);
             }
         }
@@ -843,9 +849,14 @@ pub fn recovery_bounty_system(
     mut bounty_board: ResMut<BountyBoard>,
     heroes: Query<(Entity, &Hero, &HeroState, &Transform)>,
     legacy: Res<LegacyUpgrades>,
+    kingdom: Res<KingdomState>,
 ) {
     for (entity, _hero, state, transform) in heroes.iter() {
         if let HeroState::Dead { .. } = state {
+            // Skip recovery bounties during Permanent Death challenge
+            if kingdom.challenge_modifier == ChallengeModifier::PermanentDeath {
+                continue;
+            }
             let pos = Vec2::new(transform.translation.x, transform.translation.y);
             let has_bounty = bounty_board.bounties.iter().any(|b| {
                 b.bounty_type == BountyType::Objective && b.target_entity == Some(entity) && !b.is_completed
@@ -854,6 +865,10 @@ pub fn recovery_bounty_system(
                 let mut reward = 20.0;
                 let reduction = 1.0 - legacy.bounty_cost_reduction / 100.0;
                 reward *= reduction;
+                // Apply Double Bounties challenge modifier
+                if kingdom.challenge_modifier == ChallengeModifier::DoubleBounties {
+                    reward *= 2.0;
+                }
                 bounty_board.add_bounty(BountyType::Objective, reward, pos, Some(entity), 1, 1);
             }
         }
@@ -869,6 +884,7 @@ pub fn objective_bounty_system(
     buildings: Query<(Entity, &Building, &Transform)>,
     enemies: Query<(&Enemy, &Transform)>,
     legacy: Res<LegacyUpgrades>,
+    kingdom: Res<KingdomState>,
 ) {
     for (b_entity, building, b_transform) in buildings.iter() {
         if building.is_destroyed { continue; }
@@ -888,6 +904,10 @@ pub fn objective_bounty_system(
                 let mut reward = 25.0 + building.building_type.cost() * 0.1;
                 let reduction = 1.0 - legacy.bounty_cost_reduction / 100.0;
                 reward *= reduction;
+                // Apply Double Bounties challenge modifier
+                if kingdom.challenge_modifier == ChallengeModifier::DoubleBounties {
+                    reward *= 2.0;
+                }
                 bounty_board.add_bounty(BountyType::Objective, reward, bpos, Some(b_entity), 2, 2);
             }
         }
@@ -1050,6 +1070,25 @@ pub fn era_continue_button_system(
 
             // Hide score screen
             era_score_data.show = false;
+
+            // Determine if next era is a challenge (30% chance)
+            let mut rng = rand::thread_rng();
+            let challenges = vec![
+                ChallengeModifier::DoubleBounties,
+                ChallengeModifier::PermanentDeath,
+            ];
+            if !challenges.is_empty() && rng.gen_bool(0.3) {
+                kingdom.challenge_modifier = *challenges.choose(&mut rng).unwrap();
+                let name = match kingdom.challenge_modifier {
+                    ChallengeModifier::DoubleBounties => "DOUBLE BOUNTIES",
+                    ChallengeModifier::PermanentDeath => "PERMANENT DEATH",
+                    _ => "UNKNOWN",
+                };
+                alerts.push(format!("CHALLENGE ERA: {}! Good luck... or not.", name));
+            } else {
+                kingdom.challenge_modifier = ChallengeModifier::None;
+                alerts.push("Normal era.".to_string());
+            }
 
             alerts.push(format!("ERA {} BEGIN! Good luck!", kingdom.era));
         }

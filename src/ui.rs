@@ -393,6 +393,30 @@ pub fn setup_ui(
                             ..Default::default()
                         });
                     });
+
+                    // Challenge indicator (shows active challenge modifier)
+                    btn_row.spawn_bundle(ButtonBundle {
+                        style: Style {
+                            size: Size::new(Val::Px(36.0), Val::Px(28.0)),
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::Center,
+                            ..Default::default()
+                        },
+                        color: UiColor(Color::rgba(0.9, 0.2, 0.2, 0.8)),
+                        ..Default::default()
+                    })
+                    .insert(ChallengeIndicator)
+                    .with_children(|child| {
+                        child.spawn_bundle(TextBundle {
+                            text: Text::with_section(
+                                "",
+                                TextStyle { font: font.clone(), font_size: 14.0, color: Color::WHITE },
+                                TextAlignment::default(),
+                            ),
+                            ..Default::default()
+                        })
+                        .insert(ChallengeIndicatorText);
+                    });
                 });
             });
 
@@ -1663,6 +1687,20 @@ pub fn build_menu_system(
             ));
         } else {
             alerts.push("Bounty Board closed".to_string());
+        }
+    }
+
+    // Bridge tool hotkey (V) - directly select bridge building mode
+    if keyboard.just_pressed(KeyCode::V) {
+        let available = kingdom.rank.available_buildings();
+        if available.contains(&BuildingType::Bridge) {
+            game_phase.build_mode = true;
+            game_phase.selected_building = Some(BuildingType::Bridge);
+            game_phase.show_build_menu = false;
+            game_phase.bounty_board_open = false;
+            alerts.push("Bridge tool ON - Left-click on water to build bridge".to_string());
+        } else {
+            alerts.push("Bridge unavailable at current rank".to_string());
         }
     }
 

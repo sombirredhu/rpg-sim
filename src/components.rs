@@ -139,6 +139,14 @@ pub struct LegacyButton;
 #[derive(Component)]
 pub struct LegacyBackButton;
 
+/// Marker for the challenge indicator in the top bar
+#[derive(Component)]
+pub struct ChallengeIndicator;
+
+/// Marker for the challenge indicator text
+#[derive(Component)]
+pub struct ChallengeIndicatorText;
+
 // ============================================================
 // HERO COMPONENTS
 // ============================================================
@@ -343,6 +351,15 @@ pub enum ZoneType {
     Forest,   // Dense forests, goblins/bandits, lumber resources
     Mountain, // Rocky mountains, trolls, mining resources
     Dungeon,  // Dark dungeons, elite enemies, high threat
+}
+
+/// Challenge modifiers that can be applied to an era for increased difficulty/rewards
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ChallengeModifier {
+    None,
+    DoubleBounties,  // All bounty rewards are doubled
+    PermanentDeath, // Dead heroes cannot be revived via recovery bounties
+    // NoInns,        // Inns provide no healing/rest (reserved for future)
 }
 
 impl ZoneType {
@@ -1010,6 +1027,7 @@ pub struct KingdomState {
     pub hero_count: u32,
     pub buildings_count: u32,
     pub score: u32,
+    pub challenge_modifier: ChallengeModifier,
 }
 
 impl Default for KingdomState {
@@ -1022,6 +1040,7 @@ impl Default for KingdomState {
             hero_count: 0,
             buildings_count: 0,
             score: 0,
+            challenge_modifier: ChallengeModifier::None,
         }
     }
 }

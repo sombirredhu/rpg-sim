@@ -216,7 +216,7 @@ pub fn building_texture_for_tier(
         BuildingType::Blacksmith => sprites.blacksmith_sprites.for_tier(tier),
         BuildingType::Alchemist => sprites.alchemist_sprites.for_tier(tier),
         BuildingType::Barracks => sprites.barracks_sprites.for_tier(tier),
-        BuildingType::Bridge => sprites.road_stone_tex.clone(),
+        BuildingType::Bridge => sprites.deco_bridge1.clone(),
     }
 }
 
@@ -227,7 +227,7 @@ pub fn building_scale_for_tier(building_type: BuildingType, tier: u32) -> f32 {
         BuildingType::Temple => 0.31,
         BuildingType::WizardTower => 0.31,
         BuildingType::Barracks => 0.30,
-        BuildingType::Bridge => 0.4, // larger, spans tile
+        BuildingType::Bridge => 1.0, // matches decorative bridge scale
         _ => 0.29,
     };
     let tier_bonus = match tier {

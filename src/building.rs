@@ -20,6 +20,7 @@ pub fn building_placement_system(
     mut road_network: ResMut<RoadNetwork>,
     mut alerts: ResMut<GameAlerts>,
     legacy: Res<LegacyUpgrades>,
+    mut fog: ResMut<FogOfWar>,
 ) {
     if !game_phase.build_mode {
         return;
@@ -106,9 +107,12 @@ pub fn building_placement_system(
                 hp_multiplier,
             );
 
-            // If bridge, add its position to road network for speed bonus
+            // If bridge, add its position to road network and expand revealed area
             if selected == BuildingType::Bridge {
                 road_network.tiles.push(world_pos);
+                // Expand fog of war to open new sectors
+                fog.revealed_radius += 200.0;
+                fog.expansions += 1;
             }
 
             alerts.push(format!("{} built for {:.0} gold!", selected.display_name(), cost));

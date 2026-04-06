@@ -59,13 +59,13 @@
 - [x] Market Tier 2: trade caravans with rare items
 - [x] Equipment crafting at Blacksmith
 - [x] Potion crafting at Alchemist
-- [ ] Barracks squad formation bounties
+- [x] Barracks squad formation bounties
 
 ### Road Network
 - [x] Road placement (R + click)
 - [x] 30% speed boost on roads
 - [x] Road connection bonuses (market tax boost, blacksmith craft speed)
-- [ ] Bridge building to cross rivers/open new map sectors
+- [x] Bridge building to cross rivers/open new map sectors
 - [ ] Drag-and-drop road placement (snap-to-grid)
 
 ## 5. Economy & Resources (GDD Section 6)
@@ -123,9 +123,9 @@
 - [ ] Mobile-first UI (touch controls, portrait/landscape adaptive layout)
 - [ ] 48x48pt tap targets for accessibility
 - [ ] Long-press contextual info cards with quick-action buttons
-- [ ] Floating action button for Bounty Board
+- [x] Floating action button for Bounty Board
 - [x] Visual Bounty Board panel with categorized bounty list
-- [ ] Sun/moon arc day/night indicator
+- [x] Sun/moon arc day/night indicator
 - [x] Hero panel collapse/expand toggle (H key)
 
 ## 9. Session Design (GDD Section 9.3)
@@ -143,10 +143,10 @@
 - [x] Era system with final siege
 - [x] Legacy points awarded on era completion
 - [x] Score calculation
-- [ ] Map zone unlocks per rank (Forest, Mountain, Dungeon)
-- [ ] Era completion score screen (wealth, heroes alive, buildings standing)
-- [ ] Legacy Points spending UI for permanent bonuses (+10% tax, heroes start at level 2, etc.)
-- [ ] Challenge Eras with modifiers ('No Inns', 'Double Bounties', 'Permanent Death')
+- [x] Map zone unlocks per rank (Forest, Mountain, Dungeon)
+- [x] Era completion score screen (wealth, heroes alive, buildings standing)
+- [x] Legacy Points spending UI for permanent bonuses (+10% tax, heroes start at level 2, etc.)
+- [x] Challenge Eras with modifiers (Double Bounties, Permanent Death)
 - [ ] Roguelite fresh start with Legacy carry-forward
 
 ## 11. Art & Audio (GDD Section 11)
@@ -160,11 +160,10 @@
 - [ ] Adaptive music (calm lute during day, tense strings at night)
 - [ ] Class-specific footstep and combat sound effects
 - [ ] Town ambience (merchants calling, blacksmith hammering, temple bells)
-- [ ] Boss raid siren horn effect
+- [x] Boss raid siren horn effect
 - [x] Main menu screen with Start New Game, Resume Game, Settings, and Quit buttons
-- [ ] Settings sub-menu with toggleable options (currently placeholder UI only)
+- [x] Settings sub-menu with actual sliders/toggles (SFX volume, music volume, camera speed)
 - [x] Save/Load functionality for resume game
-- [ ] Settings with actual sliders/toggles (SFX volume, music volume, camera speed)
 - [x] Hide in-game HUD until game is started from menu
 - [x] Pause game logic while main menu is active (time, enemies, economy)
 
@@ -187,8 +186,8 @@
 ## 14. Other Missing Features
 - [ ] Guild system (assign heroes to guilds or leave free-roaming)
 - [x] Hero Shopping state (heroes with surplus gold visit market, spend gold for morale boost)
-- [ ] Escort merchant bounties (Objective bounty subtype)
-- [ ] Map grid-based building placement (currently free placement)
+- [x] Escort merchant bounties (Objective bounty subtype)
+- [x] Map grid-based building placement (currently free placement)
 - [x] Building placement validation (overlap detection)
 - [ ] Tutorial / onboarding (learn in 2 minutes per GDD)
 - [ ] iOS & Android builds (currently desktop Bevy app)

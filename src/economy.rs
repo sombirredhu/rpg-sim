@@ -114,6 +114,7 @@ pub fn auto_bounty_system(
     game_phase: Res<GamePhase>,
     legacy: Res<LegacyUpgrades>,
     building_bonuses: Res<BuildingBonuses>,
+    kingdom: Res<KingdomState>,
 ) {
     if !game_phase.game_started { return; }
     for (entity, den, transform) in dens.iter() {
@@ -134,6 +135,11 @@ pub fn auto_bounty_system(
             // Determine required heroes based on threat tier and Barracks squad size
             let base_required = ((den.threat_tier + 1) / 2).max(1);
             let required_heroes = base_required.min(building_bonuses.max_squad_size);
+
+            // Apply Double Bounties challenge modifier
+            if kingdom.challenge_modifier == ChallengeModifier::DoubleBounties {
+                reward *= 2.0;
+            }
 
             bounty_board.add_bounty(
                 BountyType::Monster,
