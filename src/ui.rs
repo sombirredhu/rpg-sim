@@ -119,6 +119,40 @@ pub fn setup_ui(
                     .insert(DayNightText);
                 });
 
+                // Day/Night arc indicator (visual sun/moon progression)
+                top_bar.spawn_bundle(NodeBundle {
+                    style: Style {
+                        size: Size::new(Val::Px(60.0), Val::Px(20.0)),
+                        position_type: PositionType::Relative,
+                        margin: Rect {
+                            left: Val::Px(8.0),
+                            right: Val::Px(8.0),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                    color: UiColor(Color::NONE),
+                    ..Default::default()
+                })
+                .with_children(|arc_container| {
+                    // Sun/Moon indicator (circle)
+                    arc_container.spawn_bundle(NodeBundle {
+                        style: Style {
+                            size: Size::new(Val::Px(12.0), Val::Px(12.0)),
+                            position_type: PositionType::Absolute,
+                            position: Rect {
+                                left: Val::Px(0.0),
+                                bottom: Val::Px(0.0),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        },
+                        color: UiColor(Color::rgb(1.0, 1.0, 0.0)), // initial sun color
+                        ..Default::default()
+                    })
+                    .insert(DayNightArcIndicator);
+                });
+
                 // Kingdom rank (medal icon + text)
                 top_bar.spawn_bundle(NodeBundle {
                     style: Style {
@@ -728,6 +762,33 @@ pub fn update_day_night_ui(
             TimeOfDay::Dusk => Color::rgb(1.0, 0.5, 0.3),
             TimeOfDay::Night => Color::rgb(0.5, 0.5, 0.9),
         };
+    }
+}
+
+/// System: Update day/night arc indicator position and icon
+pub fn update_day_night_arc_system(
+    game_time: Res<GameTime>,
+    mut query: Query<(&mut Style, &mut UiColor), With<DayNightArcIndicator>>,
+) {
+    const ARC_CONTAINER_WIDTH: f32 = 60.0;
+    const INDICATOR_SIZE: f32 = 12.0;
+    let max_left = ARC_CONTAINER_WIDTH - INDICATOR_SIZE;
+
+    for (mut style, mut ui_color) in query.iter_mut() {
+        // Ensure absolute positioning
+        style.position_type = PositionType::Absolute;
+        // Update left position based on day_progress (0..1) - moves left to right
+        let left = game_time.day_progress * max_left;
+        style.position.left = Val::Px(left);
+
+        // Color based on time of day (sun by day, moon by night)
+        let color = match game_time.time_of_day {
+            TimeOfDay::Dawn => Color::rgb(1.0, 0.6, 0.2), // orange dawn sun
+            TimeOfDay::Day => Color::rgb(1.0, 1.0, 0.0), // yellow sun
+            TimeOfDay::Dusk => Color::rgb(1.0, 0.4, 0.0), // red-orange dusk sun
+            TimeOfDay::Night => Color::rgb(0.8, 0.8, 1.0), // light blue moon
+        };
+        *ui_color = UiColor(color);
     }
 }
 

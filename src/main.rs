@@ -198,6 +198,7 @@ fn main() {
         // UI systems
         .add_system(ui::update_gold_ui)
         .add_system(ui::update_day_night_ui)
+        .add_system(ui::update_day_night_arc_system)
         .add_system(ui::update_hero_panel_ui)
         .add_system(ui::update_kingdom_rank_ui)
         .add_system(ui::update_speed_ui)

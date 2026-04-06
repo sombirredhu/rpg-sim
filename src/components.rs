@@ -1461,6 +1461,10 @@ pub struct TerrainGrid {
 #[derive(Component)]
 pub struct FogTile;
 
+/// Marker component for the day/night arc UI indicator entity
+#[derive(Component)]
+pub struct DayNightArcIndicator;
+
 // ============================================================
 // SPRITE ANIMATION
 // ============================================================
