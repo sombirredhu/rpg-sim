@@ -1545,16 +1545,55 @@ pub fn map_expansion_system(
     }
 
     // Spawn new content in the newly revealed ring
+    // ============================================================
+    // Determine zone type based on unlocked zones (new feature: map zone unlocks)
+    // ============================================================
+    let unlocked_zones = kingdom.rank.unlocked_zone_types();
+    let zone_type = if unlocked_zones.len() == 1 {
+        unlocked_zones[0]
+    } else {
+        let idx = rand::random::<usize>() % unlocked_zones.len();
+        unlocked_zones[idx]
+    };
+
+    // Choose zone-appropriate enemy and resource types
+    let enemy_pool = zone_type.enemy_types();
+    let den_type = if enemy_pool.is_empty() {
+        EnemyType::Goblin
+    } else {
+        enemy_pool[rand::random::<usize>() % enemy_pool.len()]
+    };
+
+    let resource_pool = zone_type.resource_types();
+    let resource_type = if resource_pool.is_empty() {
+        ResourceType::LumberMill
+    } else {
+        resource_pool[rand::random::<usize>() % resource_pool.len()]
+    };
+
+    // Zone name based on type and expansion count
+    let zone_name = match (zone_type, fog.expansions) {
+        (ZoneType::Basic, 1) => "Outer Fields",
+        (ZoneType::Basic, 2) => "Green Fields",
+        (ZoneType::Basic, _) => "Wilderness",
+
+        (ZoneType::Forest, 1) => "Dark Forest",
+        (ZoneType::Forest, 2) => "Dense Woods",
+        (ZoneType::Forest, _) => "Ancient Woodland",
+
+        (ZoneType::Mountain, 1) => "Mountain Pass",
+        (ZoneType::Mountain, 2) => "High Peaks",
+        (ZoneType::Mountain, _) => "Rocky Highlands",
+
+        (ZoneType::Dungeon, 1) => "Ancient Ruins",
+        (ZoneType::Dungeon, 2) => "Forgotten Catacombs",
+        (ZoneType::Dungeon, _) => "Dragon's Reach",
+    };
+
     // New monster den in the expanded zone
     let den_angle = rand::random::<f32>() * TAU;
     let den_radius = old_radius + 50.0 + rand::random::<f32>() * 40.0;
     let den_pos = Vec2::new(den_angle.cos() * den_radius, den_angle.sin() * den_radius);
-
-    let den_type = match fog.expansions {
-        1..=2 => EnemyType::Goblin,
-        3 => EnemyType::Bandit,
-        _ => if rand::random::<bool>() { EnemyType::Bandit } else { EnemyType::Troll },
-    };
 
     let den = MonsterDen::new(den_type);
     let tier = den.threat_tier;
@@ -1573,10 +1612,9 @@ pub fn map_expansion_system(
     let node_radius = old_radius + 30.0 + rand::random::<f32>() * 50.0;
     let node_pos = Vec2::new(node_angle.cos() * node_radius, node_angle.sin() * node_radius);
 
-    let (rtype, color) = if fog.expansions % 2 == 1 {
-        (ResourceType::Mine, Color::rgb(0.5, 0.4, 0.3))
-    } else {
-        (ResourceType::LumberMill, Color::rgb(0.3, 0.5, 0.2))
+    let (rtype, color) = match resource_type {
+        ResourceType::Mine => (ResourceType::Mine, Color::rgb(0.5, 0.4, 0.3)),
+        ResourceType::LumberMill => (ResourceType::LumberMill, Color::rgb(0.3, 0.5, 0.2)),
     };
 
     commands.spawn_bundle(SpriteBundle {
@@ -1590,22 +1628,22 @@ pub fn map_expansion_system(
     })
     .insert(ResourceNode::new(rtype));
 
-    let zone_name = match fog.expansions {
-        1 => "Outer Fields",
-        2 => "Dark Forest",
-        3 => "Mountain Pass",
-        4 => "Ancient Ruins",
-        5 => "Dragon's Reach",
-        _ => "Unknown Territory",
-    };
-
     alerts.push(format!(
         "TERRITORY EXPANDED: {} revealed! (Radius: {:.0}) [-{:.0}g]",
         zone_name, new_radius, cost
     ));
 
-    // Spawn new decorations in the expanded ring so it doesn't look blank
-    let num_trees = 8 + (fog.expansions * 2);
+    // Spawn zone-appropriate decorations in the expanded ring
+    // Different zones have different vegetation/terrain characteristics
+    let (tree_multiplier, rock_multiplier, bush_multiplier) = match zone_type {
+        ZoneType::Basic => (1.0, 1.0, 1.0),
+        ZoneType::Forest => (2.0, 0.5, 0.7), // More trees, fewer rocks/bushes
+        ZoneType::Mountain => (0.3, 2.0, 0.5), // Fewer trees, more rocks
+        ZoneType::Dungeon => (0.2, 1.5, 0.3), // Sparse vegetation, rocky/dark
+    };
+
+    // Trees: scale by expansion count and zone type
+    let num_trees = ((8.0 + fog.expansions as f32 * 2.0) * tree_multiplier).ceil() as usize;
     let tree_tex = [
         sprites.deco_pine1.clone(), sprites.deco_pine3.clone(),
         sprites.deco_pine4.clone(), sprites.deco_tree_oak1.clone(),
@@ -1626,22 +1664,46 @@ pub fn map_expansion_system(
         .insert(MapDecoration);
     }
 
-    // Spawn small rocks and bushes in expanded area
-    let small_tex = [
+    // Rocks: increased in mountain/dungeon zones
+    let num_rocks = ((8.0 + fog.expansions as f32 * 1.5) * rock_multiplier).ceil() as usize;
+    let rock_tex = [
         sprites.deco_rock_small1.clone(),
         sprites.deco_rock_small2.clone(),
-        sprites.deco_bush1.clone(),
+        sprites.deco_rock_small3.clone(),
+        sprites.deco_rock_flat.clone(),
     ];
-    for _ in 0..8 {
+    for _ in 0..num_rocks {
         let a = rand::random::<f32>() * TAU;
-        let r = old_radius + rand::random::<f32>() * 80.0;
+        let r = old_radius + rand::random::<f32>() * 100.0;
         let pos = Vec2::new(a.cos() * r, a.sin() * r);
-        let idx = rand::random::<usize>() % small_tex.len();
-        let z = if rand::random::<bool>() { 1.0 } else { 2.0 };
+        let idx = rand::random::<usize>() % rock_tex.len();
+        let scale = 0.7 + rand::random::<f32>() * 0.6;
+        let z = 1.0 + rand::random::<f32>() * 1.0;
         commands.spawn_bundle(SpriteBundle {
-            texture: small_tex[idx].clone(),
+            texture: rock_tex[idx].clone(),
             transform: Transform::from_translation(Vec3::new(pos.x, pos.y, z))
-                .with_scale(Vec3::splat(0.7 + rand::random::<f32>() * 0.3)),
+                .with_scale(Vec3::splat(scale)),
+            ..Default::default()
+        })
+        .insert(MapDecoration);
+    }
+
+    // Bushes: less important, still present but scaled
+    let num_bushes = ((5 + fog.expansions) as f32 * bush_multiplier).ceil() as usize;
+    let bush_tex = [
+        sprites.deco_bush1.clone(),
+        sprites.deco_bush2.clone(),
+    ];
+    for _ in 0..num_bushes {
+        let a = rand::random::<f32>() * TAU;
+        let r = old_radius + rand::random::<f32>() * 90.0;
+        let pos = Vec2::new(a.cos() * r, a.sin() * r);
+        let idx = rand::random::<usize>() % bush_tex.len();
+        let scale = 0.6 + rand::random::<f32>() * 0.4;
+        commands.spawn_bundle(SpriteBundle {
+            texture: bush_tex[idx].clone(),
+            transform: Transform::from_translation(Vec3::new(pos.x, pos.y, 2.0))
+                .with_scale(Vec3::splat(scale)),
             ..Default::default()
         })
         .insert(MapDecoration);

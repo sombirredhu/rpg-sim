@@ -280,6 +280,44 @@ pub enum BuildingType {
     Bridge,
 }
 
+/// Map zone types that unlock based on kingdom rank
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ZoneType {
+    Basic,    // Starting zones: grasslands, basic enemies (goblins)
+    Forest,   // Dense forests, goblins/bandits, lumber resources
+    Mountain, // Rocky mountains, trolls, mining resources
+    Dungeon,  // Dark dungeons, elite enemies, high threat
+}
+
+impl ZoneType {
+    pub fn display_name(&self) -> &str {
+        match self {
+            ZoneType::Basic => "Basic",
+            ZoneType::Forest => "Forest",
+            ZoneType::Mountain => "Mountain",
+            ZoneType::Dungeon => "Dungeon",
+        }
+    }
+
+    /// Get appropriate enemy types for this zone
+    pub fn enemy_types(&self) -> Vec<EnemyType> {
+        match self {
+            ZoneType::Basic => vec![EnemyType::Goblin, EnemyType::Bandit],
+            ZoneType::Forest => vec![EnemyType::Goblin, EnemyType::Bandit, EnemyType::Werewolf],
+            ZoneType::Mountain => vec![EnemyType::Troll, EnemyType::Bandit],
+            ZoneType::Dungeon => vec![EnemyType::GoblinElite, EnemyType::BossWarlord],
+        }
+    }
+
+    /// Get appropriate resource types for this zone
+    pub fn resource_types(&self) -> Vec<ResourceType> {
+        match self {
+            ZoneType::Basic | ZoneType::Forest => vec![ResourceType::LumberMill],
+            ZoneType::Mountain | ZoneType::Dungeon => vec![ResourceType::Mine],
+        }
+    }
+}
+
 impl BuildingType {
     pub fn cost(&self) -> f32 {
         match self {
@@ -873,6 +911,17 @@ impl KingdomRank {
             KingdomRank::Town => 3,
             KingdomRank::City => 4,
             KingdomRank::Kingdom => 5,
+        }
+    }
+
+    /// Map zone types unlocked at this kingdom rank
+    pub fn unlocked_zone_types(&self) -> Vec<ZoneType> {
+        match self {
+            KingdomRank::Hamlet => vec![ZoneType::Basic],
+            KingdomRank::Village => vec![ZoneType::Basic, ZoneType::Forest],
+            KingdomRank::Town => vec![ZoneType::Basic, ZoneType::Forest, ZoneType::Mountain],
+            KingdomRank::City => vec![ZoneType::Basic, ZoneType::Forest, ZoneType::Mountain, ZoneType::Dungeon],
+            KingdomRank::Kingdom => vec![ZoneType::Basic, ZoneType::Forest, ZoneType::Mountain, ZoneType::Dungeon],
         }
     }
 
