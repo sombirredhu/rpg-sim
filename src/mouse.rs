@@ -17,6 +17,7 @@ pub fn camera_drag_system(
     mut mouse_motion: EventReader<bevy::input::mouse::MouseMotion>,
     mut camera: Query<(&mut Transform, &mut OrthographicProjection), With<MainCamera>>,
     game_phase: Res<GamePhase>,
+    camera_speed: Res<CameraSpeed>,
 ) {
     if !game_phase.game_started || game_phase.build_mode || game_phase.show_build_menu || game_phase.bounty_board_open {
         for _ in mouse_motion.iter() {}
@@ -25,10 +26,11 @@ pub fn camera_drag_system(
 
     if mouse_input.pressed(MouseButton::Right) {
         for (mut transform, projection) in camera.iter_mut() {
+            let speed = projection.scale * camera_speed.0;
             for ev in mouse_motion.iter() {
                 // Drag right = camera moves left (pan follows cursor)
-                transform.translation.x -= ev.delta.x * projection.scale;
-                transform.translation.y += ev.delta.y * projection.scale;
+                transform.translation.x -= ev.delta.x * speed;
+                transform.translation.y += ev.delta.y * speed;
             }
         }
     } else {

@@ -26,7 +26,7 @@ pub fn setup_audio(
     let sfx_hit_impact: Handle<AudioSource> = asset_server.load("Audio/SFX/hit_impact.ogg");
     let sfx_death_womp: Handle<AudioSource> = asset_server.load("Audio/SFX/death_womp.ogg");
 
-    // Play background music (single play for now; looping can be added later)
+    // Play background music
     audio.play(music_theme.clone());
 
     commands.insert_resource(AudioAssets {
@@ -44,16 +44,11 @@ pub fn play_sfx_system(
     audio_assets: Res<AudioAssets>,
 ) {
     for event in events.iter() {
-        match event {
-            SfxEvent::CoinReward => {
-                audio.play(audio_assets.sfx_coin_reward.clone());
-            }
-            SfxEvent::HitImpact => {
-                audio.play(audio_assets.sfx_hit_impact.clone());
-            }
-            SfxEvent::DeathWomp => {
-                audio.play(audio_assets.sfx_death_womp.clone());
-            }
-        }
+        let handle = match event {
+            SfxEvent::CoinReward => audio_assets.sfx_coin_reward.clone(),
+            SfxEvent::HitImpact => audio_assets.sfx_hit_impact.clone(),
+            SfxEvent::DeathWomp => audio_assets.sfx_death_womp.clone(),
+        };
+        audio.play(handle);
     }
 }

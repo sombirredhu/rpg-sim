@@ -1838,3 +1838,15 @@ impl Default for BuildingBonuses {
         }
     }
 }
+
+/// Volume multiplier for sound effects (0.0 mute, 1.0 full)
+#[derive(Default)]
+pub struct SfxVolume(pub f32);
+
+/// Volume multiplier for music (0.0 mute, 1.0 full)
+#[derive(Default)]
+pub struct MusicVolume(pub f32);
+
+/// Camera pan speed multiplier (1.0 = default)
+#[derive(Default)]
+pub struct CameraSpeed(pub f32);

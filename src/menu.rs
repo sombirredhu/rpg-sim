@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::ecs::system::EntityCommands;
 use crate::components::*;
 
 // ============================================================
@@ -43,6 +44,15 @@ pub struct BackButton;
 
 #[derive(Component)]
 pub struct SettingsVolumeText;
+
+#[derive(Component)]
+pub struct SfxVolumeControl;
+
+#[derive(Component)]
+pub struct MusicVolumeControl;
+
+#[derive(Component)]
+pub struct CameraSpeedControl;
 
 #[derive(Component)]
 pub struct SettingToggleVisual;
@@ -245,20 +255,23 @@ fn spawn_settings_menu(commands: &mut Commands, font: Handle<Font>) {
             // Setting rows
             spawn_setting_row(
                 parent,
-                "Sound Effects: ON",
+                "Sound Effects: 100%",
                 font.clone(),
+                SfxVolumeControl,
             );
 
             spawn_setting_row(
                 parent,
-                "Music: ON",
+                "Music: 100%",
                 font.clone(),
+                MusicVolumeControl,
             );
 
             spawn_setting_row(
                 parent,
                 "Camera Speed: Normal",
                 font.clone(),
+                CameraSpeedControl,
             );
 
             // Back button
@@ -275,6 +288,7 @@ fn spawn_setting_row(
     parent: &mut ChildBuilder,
     label: &str,
     font: Handle<Font>,
+    marker: impl Component,
 ) {
     parent.spawn_bundle(ButtonBundle {
         style: Style {
@@ -292,6 +306,7 @@ fn spawn_setting_row(
         ..Default::default()
     })
     .insert(SettingToggleVisual)
+    .insert(marker)
     .with_children(|btn| {
         btn.spawn_bundle(TextBundle {
             text: Text::with_section(
@@ -486,6 +501,87 @@ pub fn menu_button_hover_system(
                     Interaction::Clicked => Color::rgb(0.6, 1.0, 0.6),
                     Interaction::None => Color::rgb(0.85, 0.85, 0.85),
                 };
+            }
+        }
+    }
+}
+
+// ============================================================
+// Settings Sliders - Volume and Camera Speed Controls
+// ============================================================
+
+pub fn sfx_volume_control_system(
+    mut interaction_query: Query<(&Children, &Interaction), (With<SfxVolumeControl>, Changed<Interaction>)>,
+    mut text_query: Query<&mut Text>,
+    mut volume: ResMut<SfxVolume>,
+) {
+    for (children, interaction) in interaction_query.iter_mut() {
+        if let Interaction::Clicked = *interaction {
+            let levels = [1.0, 0.75, 0.5, 0.25, 0.0];
+            let mut next_index = 0;
+            for (i, &lvl) in levels.iter().enumerate() {
+                if (volume.0 - lvl).abs() < 0.01 {
+                    next_index = (i + 1) % levels.len();
+                    break;
+                }
+            }
+            volume.0 = levels[next_index];
+            for &child in children.iter() {
+                if let Ok(mut text) = text_query.get_mut(child) {
+                    let percent = (volume.0 * 100.0) as u32;
+                    text.sections[0].value = format!("Sound Effects: {}%", percent);
+                }
+            }
+        }
+    }
+}
+
+pub fn music_volume_control_system(
+    mut interaction_query: Query<(&Children, &Interaction), (With<MusicVolumeControl>, Changed<Interaction>)>,
+    mut text_query: Query<&mut Text>,
+    mut volume: ResMut<MusicVolume>,
+) {
+    for (children, interaction) in interaction_query.iter_mut() {
+        if let Interaction::Clicked = *interaction {
+            let levels = [1.0, 0.75, 0.5, 0.25, 0.0];
+            let mut next_index = 0;
+            for (i, &lvl) in levels.iter().enumerate() {
+                if (volume.0 - lvl).abs() < 0.01 {
+                    next_index = (i + 1) % levels.len();
+                    break;
+                }
+            }
+            volume.0 = levels[next_index];
+            for &child in children.iter() {
+                if let Ok(mut text) = text_query.get_mut(child) {
+                    let percent = (volume.0 * 100.0) as u32;
+                    text.sections[0].value = format!("Music: {}%", percent);
+                }
+            }
+        }
+    }
+}
+
+pub fn camera_speed_control_system(
+    mut interaction_query: Query<(&Children, &Interaction), (With<CameraSpeedControl>, Changed<Interaction>)>,
+    mut text_query: Query<&mut Text>,
+    mut speed: ResMut<CameraSpeed>,
+) {
+    for (children, interaction) in interaction_query.iter_mut() {
+        if let Interaction::Clicked = *interaction {
+            let speeds = [(0.5, "Slow"), (1.0, "Normal"), (1.5, "Fast"), (2.0, "Ultra")];
+            let mut next_index = 0;
+            for (i, &(spd, _)) in speeds.iter().enumerate() {
+                if (speed.0 - spd).abs() < 0.01 {
+                    next_index = (i + 1) % speeds.len();
+                    break;
+                }
+            }
+            speed.0 = speeds[next_index].0;
+            for &child in children.iter() {
+                if let Ok(mut text) = text_query.get_mut(child) {
+                    text.sections[0].value = format!("Camera Speed: {}", speeds[next_index].1);
+                }
             }
         }
     }
