@@ -216,6 +216,7 @@ pub fn building_texture_for_tier(
         BuildingType::Blacksmith => sprites.blacksmith_sprites.for_tier(tier),
         BuildingType::Alchemist => sprites.alchemist_sprites.for_tier(tier),
         BuildingType::Barracks => sprites.barracks_sprites.for_tier(tier),
+        BuildingType::Bridge => sprites.road_stone_tex.clone(),
     }
 }
 
@@ -226,6 +227,7 @@ pub fn building_scale_for_tier(building_type: BuildingType, tier: u32) -> f32 {
         BuildingType::Temple => 0.31,
         BuildingType::WizardTower => 0.31,
         BuildingType::Barracks => 0.30,
+        BuildingType::Bridge => 0.4, // larger, spans tile
         _ => 0.29,
     };
     let tier_bonus = match tier {
@@ -1062,6 +1064,9 @@ pub fn spawn_ground_tiles(mut commands: Commands, sprites: Res<SpriteAssets>) {
             });
         }
     }
+
+    // Store terrain grid for later queries (e.g., bridge placement)
+    commands.insert_resource(TerrainGrid { grid: terrain_map });
 }
 
 pub fn spawn_terrain_overlays(mut commands: Commands, sprites: Res<SpriteAssets>) {

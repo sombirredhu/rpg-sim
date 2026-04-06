@@ -1099,6 +1099,9 @@ pub fn update_building_info_ui(
                     info.push_str(&format!("Healing & Blessings\n"));
                     info.push_str(&format!("Attracts: Healers\n"));
                 }
+                BuildingType::Bridge => {
+                    info.push_str("Bridge: Cross rivers\n");
+                }
             }
 
             for mut text in text_query.iter_mut() {

@@ -2,6 +2,8 @@ use bevy::prelude::*;
 use crate::components::*;
 use crate::camera::cursor_to_world_2d;
 use crate::sprites::{SpriteAssets, spawn_building_with_sprite};
+use crate::map_layout::{GRID_W, GRID_H, TILE_SIZE};
+use crate::noise_map::{tile_to_world, NoiseTerrain};
 
 /// System: Handle building placement from build mode
 pub fn building_placement_system(
@@ -14,6 +16,8 @@ pub fn building_placement_system(
     kingdom: Res<KingdomState>,
     buildings: Query<(&Building, &Transform)>,
     sprites: Res<SpriteAssets>,
+    terrain_grid: Option<Res<TerrainGrid>>,
+    mut road_network: ResMut<RoadNetwork>,
     mut alerts: ResMut<GameAlerts>,
 ) {
     if !game_phase.build_mode {
@@ -31,7 +35,7 @@ pub fn building_placement_system(
             None => return,
         };
         if let Ok((_camera, camera_transform, projection)) = camera.get_single() {
-            let world_pos = match cursor_to_world_2d(window, camera_transform, projection) {
+            let mut world_pos = match cursor_to_world_2d(window, camera_transform, projection) {
                 Some(pos) => pos,
                 None => return,
             };
@@ -57,6 +61,35 @@ pub fn building_placement_system(
                 }
             }
 
+            // Terrain validation: bridges only on water; other buildings not on water
+            if let Some(terrain_grid_res) = terrain_grid.as_ref() {
+                let offset_x = -(GRID_W as f32 * TILE_SIZE / 2.0);
+                let offset_y = -(GRID_H as f32 * TILE_SIZE / 2.0);
+                let tile_x = ((world_pos.x - offset_x) / TILE_SIZE).round() as usize;
+                let tile_y = ((world_pos.y - offset_y) / TILE_SIZE).round() as usize;
+
+                if tile_x < GRID_W && tile_y < GRID_H {
+                    if let Some(row) = terrain_grid_res.grid.get(tile_x) {
+                        if let Some(terrain) = row.get(tile_y) {
+                            let is_water = matches!(terrain, NoiseTerrain::Water);
+                            if selected == BuildingType::Bridge {
+                                if !is_water {
+                                    alerts.push("Bridges can only be built on water tiles!".to_string());
+                                    return;
+                                }
+                                // Snap bridge position to tile center for proper alignment
+                                world_pos = tile_to_world(tile_x, tile_y, offset_x, offset_y);
+                            } else {
+                                if is_water {
+                                    alerts.push("Cannot build on water!".to_string());
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             economy.gold -= cost;
             economy.total_spent += cost;
 
@@ -66,6 +99,11 @@ pub fn building_placement_system(
                 selected,
                 Vec3::new(world_pos.x, world_pos.y, 5.0),
             );
+
+            // If bridge, add its position to road network for speed bonus
+            if selected == BuildingType::Bridge {
+                road_network.tiles.push(world_pos);
+            }
 
             alerts.push(format!("{} built for {:.0} gold!", selected.display_name(), cost));
 

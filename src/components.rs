@@ -2,6 +2,7 @@
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+use crate::noise_map::NoiseTerrain;
 
 // ============================================================
 // UI INTERACTION COMPONENTS — Marker components for mouse interaction
@@ -276,6 +277,7 @@ pub enum BuildingType {
     Blacksmith,
     Alchemist,
     Barracks,
+    Bridge,
 }
 
 impl BuildingType {
@@ -290,6 +292,7 @@ impl BuildingType {
             BuildingType::Blacksmith => 350.0,
             BuildingType::Alchemist => 300.0,
             BuildingType::Barracks => 450.0,
+            BuildingType::Bridge => 200.0,
         }
     }
 
@@ -308,6 +311,7 @@ impl BuildingType {
             BuildingType::Blacksmith => 12.0,
             BuildingType::Alchemist => 9.0,
             BuildingType::Barracks => 5.0,
+            BuildingType::Bridge => 0.0,
         };
         base * (1.0 + tier as f32 * 0.5)
     }
@@ -323,6 +327,7 @@ impl BuildingType {
             BuildingType::Blacksmith => "Blacksmith",
             BuildingType::Alchemist => "Alchemist",
             BuildingType::Barracks => "Barracks",
+            BuildingType::Bridge => "Bridge",
         }
     }
 
@@ -337,6 +342,7 @@ impl BuildingType {
             BuildingType::Blacksmith => Color::rgb(0.4, 0.3, 0.2),
             BuildingType::Alchemist => Color::rgb(0.2, 0.7, 0.6),
             BuildingType::Barracks => Color::rgb(0.6, 0.3, 0.3),
+            BuildingType::Bridge => Color::rgb(0.4, 0.5, 0.7), // stone bridge color
         }
     }
 
@@ -379,6 +385,7 @@ impl Building {
             BuildingType::TownHall => 500.0,
             BuildingType::GuardTower => 300.0,
             BuildingType::Barracks => 350.0,
+            BuildingType::Bridge => 250.0,
             _ => 200.0,
         };
         Self {
@@ -878,11 +885,12 @@ impl KingdomRank {
         match self {
             KingdomRank::Hamlet => vec![BuildingType::TownHall, BuildingType::Inn, BuildingType::Market],
             KingdomRank::Village => vec![BuildingType::TownHall, BuildingType::Inn, BuildingType::Market, BuildingType::Temple, BuildingType::GuardTower],
-            KingdomRank::Town => vec![BuildingType::TownHall, BuildingType::Inn, BuildingType::Market, BuildingType::Temple, BuildingType::GuardTower, BuildingType::WizardTower, BuildingType::Blacksmith],
+            KingdomRank::Town => vec![BuildingType::TownHall, BuildingType::Inn, BuildingType::Market, BuildingType::Temple, BuildingType::GuardTower, BuildingType::WizardTower, BuildingType::Blacksmith, BuildingType::Bridge],
             KingdomRank::City | KingdomRank::Kingdom => vec![
                 BuildingType::TownHall, BuildingType::Inn, BuildingType::Market,
                 BuildingType::Temple, BuildingType::GuardTower, BuildingType::WizardTower,
                 BuildingType::Blacksmith, BuildingType::Alchemist, BuildingType::Barracks,
+                BuildingType::Bridge,
             ],
         }
     }
@@ -1393,6 +1401,12 @@ impl Default for FogOfWar {
             expansions: 0,
         }
     }
+}
+
+/// Stores the static terrain grid for building placement queries
+#[derive(Clone)]
+pub struct TerrainGrid {
+    pub grid: Vec<Vec<NoiseTerrain>>,
 }
 
 #[derive(Component)]
