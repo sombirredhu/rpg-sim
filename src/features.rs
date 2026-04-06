@@ -851,10 +851,12 @@ pub fn era_siege_system(
     mut commands: Commands,
     mut era: ResMut<EraState>,
     mut kingdom: ResMut<KingdomState>,
-    game_time: Res<GameTime>,
+    mut game_time: ResMut<GameTime>,
     sprites: Res<SpriteAssets>,
     time: Res<Time>,
     mut alerts: ResMut<GameAlerts>,
+    mut era_score_data: ResMut<EraScoreData>,
+    _game_phase: ResMut<GamePhase>,
 ) {
     let dt = time.delta_seconds() * game_time.speed_multiplier;
 
@@ -892,16 +894,111 @@ pub fn era_siege_system(
         alerts.push(format!("Siege wave {}! {} remaining",
             5 - era.siege_waves_remaining, era.siege_waves_remaining));
     } else {
-        // Siege complete — award legacy points
+        // Siege complete — show era completion score screen
         era.siege_active = false;
         let points = 10 + kingdom.score / 100;
-        kingdom.legacy_points += points;
-        kingdom.era += 1;
-        alerts.push(format!("ERA COMPLETE! +{} Legacy Points! Starting Era {}", points, kingdom.era));
 
-        // Reset for next era
-        era.era_length_days = 45;
-        era.siege_waves_remaining = 0;
+        // Pause the game and prepare score screen data
+        game_time.is_paused = true;
+        era_score_data.show = true;
+        era_score_data.era_completed = kingdom.era;
+        era_score_data.legacy_earned = points;
+
+        alerts.push(format!("ERA COMPLETE! +{} Legacy Points!", points));
+        // Note: era will be incremented and legacy awarded when player clicks Continue
+    }
+}
+
+// ================================================================
+// 13. ERA COMPLETION SCORE SCREEN
+// ================================================================
+
+/// System: Show/hide the era score screen based on EraScoreData
+pub fn era_score_screen_visibility_system(
+    mut query: Query<&mut Visibility, With<EraScoreScreen>>,
+    era_score_data: Res<EraScoreData>,
+) {
+    for mut vis in query.iter_mut() {
+        vis.is_visible = era_score_data.show;
+    }
+}
+
+/// System: Update legacy points text on era score screen
+pub fn update_era_score_legacy_system(
+    era_score_data: Res<EraScoreData>,
+    mut legacy_query: Query<&mut Text, With<EraScoreLegacyText>>,
+) {
+    if !era_score_data.show {
+        return;
+    }
+
+    for mut text in legacy_query.iter_mut() {
+        text.sections[0].value = format!("Legacy Points: +{}", era_score_data.legacy_earned);
+    }
+}
+
+/// System: Update stats text on era score screen
+pub fn update_era_score_stats_system(
+    era_score_data: Res<EraScoreData>,
+    mut stats_query: Query<&mut Text, With<EraScoreStatsText>>,
+    economy: Res<GameEconomy>,
+    heroes_state: Query<&HeroState, With<Hero>>,
+    buildings: Query<&Building>,
+) {
+    if !era_score_data.show {
+        return;
+    }
+
+    // Compute stats
+    let gold = economy.gold.round() as u32;
+    let heroes_alive = heroes_state.iter()
+        .filter(|state| !matches!(state, HeroState::Dead { .. }))
+        .count() as u32;
+    let buildings_standing = buildings.iter()
+        .filter(|b| !b.is_destroyed)
+        .count() as u32;
+
+    // Update stats text
+    for mut text in stats_query.iter_mut() {
+        text.sections[0].value = format!(
+            "Gold remaining: {}\nHeroes alive: {}\nBuildings standing: {}",
+            gold, heroes_alive, buildings_standing
+        );
+    }
+}
+
+/// System: Handle Continue button click to start the next era
+pub fn era_continue_button_system(
+    continue_btn: Query<&Interaction, With<EraContinueButton>>,
+    mut era_score_data: ResMut<EraScoreData>,
+    mut kingdom: ResMut<KingdomState>,
+    mut era_state: ResMut<EraState>,
+    mut game_time: ResMut<GameTime>,
+    mut alerts: ResMut<GameAlerts>,
+) {
+    if !era_score_data.show {
+        return;
+    }
+
+    for interaction in continue_btn.iter() {
+        if matches!(interaction, Interaction::Clicked) {
+            // Award legacy points
+            kingdom.legacy_points += era_score_data.legacy_earned;
+            kingdom.era += 1;
+
+            // Reset era state for the new era
+            era_state.era_length_days = 45;
+            era_state.siege_waves_remaining = 0;
+            era_state.siege_active = false;
+
+            // Unpause the game
+            game_time.is_paused = false;
+
+            // Hide score screen
+            era_score_data.show = false;
+
+            alerts.push(format!("ERA {} BEGIN! Good luck!", kingdom.era));
+        }
     }
 }
 

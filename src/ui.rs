@@ -719,6 +719,86 @@ pub fn setup_ui(
                     ..Default::default()
                 });
             });
+                // Era completion score screen (initially hidden)
+                parent.spawn_bundle(NodeBundle {
+                    style: Style {
+                        size: Size::new(Val::Px(300.0), Val::Auto),
+                        position_type: PositionType::Absolute,
+                        position: Rect {
+                            left: Val::Px(50.0),
+                            top: Val::Px(100.0),
+                            ..Default::default()
+                        },
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::Center,
+                        padding: Rect::all(Val::Px(16.0)),
+                        ..Default::default()
+                    },
+                    color: UiColor(Color::rgba(0.1, 0.1, 0.1, 0.95)),
+                    visibility: Visibility { is_visible: false },
+                    ..Default::default()
+                })
+                .insert(EraScoreScreen)
+                .with_children(|panel| {
+                    // Title
+                    panel.spawn_bundle(TextBundle {
+                        text: Text::with_section(
+                            "ERA COMPLETE",
+                            TextStyle { font: font.clone(), font_size: 28.0, color: Color::rgb(0.9, 0.8, 0.2) },
+                            TextAlignment::default(),
+                        ),
+                        style: Style { margin: Rect { top: Val::Px(0.0), bottom: Val::Px(12.0), left: Val::Px(0.0), right: Val::Px(0.0) }, ..Default::default() },
+                        ..Default::default()
+                    });
+
+                    // Legacy points earned
+                    panel.spawn_bundle(TextBundle {
+                        text: Text::with_section(
+                            "Legacy Points: +0",
+                            TextStyle { font: font.clone(), font_size: 20.0, color: Color::WHITE },
+                            TextAlignment::default(),
+                        ),
+                        ..Default::default()
+                    })
+                    .insert(EraScoreLegacyText);
+
+                    // Stats: Gold, Heroes, Buildings
+                    panel.spawn_bundle(TextBundle {
+                        text: Text::with_section(
+                            "Gold remaining: 0\nHeroes alive: 0\nBuildings standing: 0",
+                            TextStyle { font: font.clone(), font_size: 18.0, color: Color::rgb(0.8, 0.8, 0.8) },
+                            TextAlignment::default(),
+                        ),
+                        style: Style { margin: Rect { top: Val::Px(8.0), bottom: Val::Px(12.0), left: Val::Px(0.0), right: Val::Px(0.0) }, ..Default::default() },
+                        ..Default::default()
+                    })
+                    .insert(EraScoreStatsText);
+
+                    // Continue button
+                    panel.spawn_bundle(ButtonBundle {
+                        style: Style {
+                            size: Size::new(Val::Px(120.0), Val::Px(40.0)),
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::Center,
+                            margin: Rect { top: Val::Px(8.0), bottom: Val::Px(0.0), left: Val::Px(0.0), right: Val::Px(0.0) },
+                            ..Default::default()
+                        },
+                        color: UiColor(Color::rgba(0.3, 0.5, 0.2, 0.8)),
+                        ..Default::default()
+                    })
+                    .with_children(|btn| {
+                        btn.spawn_bundle(TextBundle {
+                            text: Text::with_section(
+                                "Continue",
+                                TextStyle { font: font.clone(), font_size: 20.0, color: Color::WHITE },
+                                TextAlignment::default(),
+                            ),
+                            ..Default::default()
+                        });
+                    })
+                    .insert(EraContinueButton);
+                });
+
                 // Floating bounty board button (bottom-right)
                 parent.spawn_bundle(ButtonBundle {
                     style: Style {

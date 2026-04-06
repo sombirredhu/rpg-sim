@@ -51,6 +51,7 @@ fn main() {
         .insert_resource(Milestones::default())
         .insert_resource(LegacyUpgrades::default())
         .insert_resource(EraState::default())
+        .insert_resource(EraScoreData::default())
         .insert_resource(BuildingBonuses::default())
         .insert_resource(ActiveBuffs::default())
         .insert_resource(FogOfWar::default())
@@ -186,6 +187,11 @@ fn main() {
         .add_system(features::objective_bounty_system)
         .add_system(features::era_siege_system)
         .add_system(features::torch_defense_system)
+        // Era score screen systems
+        .add_system(features::era_score_screen_visibility_system)
+        .add_system(features::update_era_score_legacy_system)
+        .add_system(features::update_era_score_stats_system)
+        .add_system(features::era_continue_button_system)
         // Alchemist potion crafting and consumption
         .add_system(features::alchemist_craft_system)
         .add_system(features::hero_potion_consumption_system)

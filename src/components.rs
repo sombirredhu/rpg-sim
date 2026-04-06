@@ -1465,6 +1465,19 @@ pub struct FogTile;
 #[derive(Component)]
 pub struct DayNightArcIndicator;
 
+/// Marker component for the era completion score screen UI
+#[derive(Component)]
+pub struct EraScoreScreen;
+
+#[derive(Component)]
+pub struct EraScoreLegacyText;
+
+#[derive(Component)]
+pub struct EraScoreStatsText;
+
+#[derive(Component)]
+pub struct EraContinueButton;
+
 // ============================================================
 // SPRITE ANIMATION
 // ============================================================
@@ -1644,6 +1657,14 @@ impl Default for EraState {
             siege_spawn_timer: 0.0,
         }
     }
+}
+
+/// Data for the era completion score screen (temporary storage)
+#[derive(Default, Clone)]
+pub struct EraScoreData {
+    pub show: bool,
+    pub era_completed: u32,
+    pub legacy_earned: u32,
 }
 
 // ============================================================
