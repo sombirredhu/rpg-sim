@@ -719,6 +719,23 @@ pub fn setup_ui(
                     ..Default::default()
                 });
             });
+                // Floating bounty board button (bottom-right)
+                parent.spawn_bundle(ButtonBundle {
+                    style: Style {
+                        size: Size::new(Val::Px(48.0), Val::Px(48.0)),
+                        position_type: PositionType::Absolute,
+                        position: Rect {
+                            right: Val::Px(10.0),
+                            bottom: Val::Px(50.0), // above bottom bar
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                    color: UiColor(Color::rgba(0.5, 0.4, 0.1, 0.8)),
+                    ..Default::default()
+                })
+                .insert(BountyButton);
+
         });
 }
 
