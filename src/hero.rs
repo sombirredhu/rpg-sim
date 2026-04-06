@@ -353,6 +353,7 @@ pub fn bounty_resolution_system(
     resource_nodes: Query<&ResourceNode>,
     buildings: Query<(&Building, &Transform)>,
     enemies: Query<&Transform, With<Enemy>>,
+    caravans: Query<(&TradeCaravan, &Transform)>,
     mut events: EventWriter<BountyCompletedEvent>,
 ) {
     for (hero_entity, mut state, transform) in heroes.iter_mut() {
@@ -413,6 +414,10 @@ pub fn bounty_resolution_system(
                             (epos - bpos).length() < 150.0
                         });
                         near_bounty && !building.is_destroyed && !enemies_nearby
+                    } else if let Ok((caravan, caravan_transform)) = caravans.get(target) {
+                        let cpos = Vec2::new(caravan_transform.translation.x, caravan_transform.translation.y);
+                        let hero_near_caravan = (hero_pos - cpos).length() <= 50.0;
+                        caravan.has_arrived && hero_near_caravan
                     } else {
                         near_bounty
                     }

@@ -1461,6 +1461,8 @@ pub struct TradeCaravan {
     pub destination: Vec2,
     pub has_arrived: bool,
     pub leave_timer: f32,
+    pub hp: f32,
+    pub max_hp: f32,
 }
 
 /// Tracks active rare-item buffs applied to the kingdom

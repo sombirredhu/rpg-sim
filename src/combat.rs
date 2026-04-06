@@ -134,6 +134,7 @@ pub fn enemy_attack_system(
     mut enemies: Query<(&Enemy, &EnemyStats, &EnemyAi, &mut AttackCooldown, &Transform)>,
     mut heroes: Query<(Entity, &mut HeroStats, &HeroEquipment, &mut HeroState, &Transform), (With<Hero>, Without<Enemy>)>,
     mut buildings: Query<(&mut Building, &Transform), (Without<Hero>, Without<Enemy>)>,
+    mut caravans: Query<(&mut TradeCaravan, &Transform), (Without<Hero>, Without<Enemy>)>,
     active_buffs: Res<ActiveBuffs>,
     building_bonuses: Res<BuildingBonuses>,
     game_time: Res<GameTime>,
@@ -196,6 +197,20 @@ pub fn enemy_attack_system(
                         building.hp = 0.0;
                     }
 
+                    cooldown.timer = cooldown.interval;
+                }
+            }
+
+            // Try to attack caravan
+            if let Ok((mut caravan, caravan_transform)) = caravans.get_mut(target) {
+                let cpos = Vec2::new(caravan_transform.translation.x, caravan_transform.translation.y);
+                let dist = (cpos - enemy_pos).length();
+
+                if dist <= stats.attack_range && caravan.hp > 0.0 {
+                    caravan.hp -= stats.attack;
+                    if caravan.hp <= 0.0 {
+                        caravan.hp = 0.0;
+                    }
                     cooldown.timer = cooldown.interval;
                 }
             }

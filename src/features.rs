@@ -379,6 +379,8 @@ pub fn trade_caravan_spawn_system(
     time: Res<Time>,
     mut timer: Local<f32>,
     mut alerts: ResMut<GameAlerts>,
+    mut bounty_board: ResMut<BountyBoard>,
+    legacy: Res<LegacyUpgrades>,
 ) {
     if game_time.is_night() { return; } // Caravans only during day
 
@@ -402,7 +404,7 @@ pub fn trade_caravan_spawn_system(
     let angle = rand::random::<f32>() * TAU;
     let start = Vec2::new(angle.cos() * 550.0, angle.sin() * 550.0);
 
-    commands.spawn_bundle(SpriteBundle {
+    let caravan_entity = commands.spawn_bundle(SpriteBundle {
         texture: sprites.caravan_sprites.lvl1.clone(),
         transform: Transform::from_translation(Vec3::new(start.x, start.y, 9.0))
             .with_scale(Vec3::splat(0.25)),
@@ -413,7 +415,23 @@ pub fn trade_caravan_spawn_system(
         destination: Vec2::ZERO,
         has_arrived: false,
         leave_timer: 20.0,
-    });
+        hp: 100.0,
+        max_hp: 100.0,
+    })
+    .id();
+
+    // Create escort bounty for this caravan
+    let mut reward = 30.0 + item.cost() as f32 * 0.5;
+    let reduction = 1.0 - legacy.bounty_cost_reduction / 100.0;
+    reward *= reduction;
+    bounty_board.add_bounty(
+        crate::components::BountyType::Objective,
+        reward,
+        start,
+        Some(caravan_entity),
+        2, // danger_level
+        1, // required_heroes
+    );
 
     alerts.push(format!(
         "Trade caravan with {} approaching! (cost: {:.0}g)",
@@ -496,6 +514,28 @@ pub fn trade_caravan_movement_system(
             if caravan.leave_timer <= 0.0 {
                 commands.entity(entity).despawn();
             }
+        }
+    }
+}
+
+/// System: Clean up destroyed caravans and alert player
+pub fn caravan_death_system(
+    mut commands: Commands,
+    mut caravans: Query<(Entity, &TradeCaravan)>,
+    mut bounty_board: ResMut<BountyBoard>,
+    mut alerts: ResMut<GameAlerts>,
+) {
+    for (entity, caravan) in caravans.iter_mut() {
+        if caravan.hp <= 0.0 {
+            // Remove any associated bounty
+            bounty_board.bounties.retain(|b| b.target_entity != Some(entity));
+            // Alert player
+            alerts.push(format!(
+                "Caravan destroyed! The {} shipment has been lost.",
+                caravan.item.display_name()
+            ));
+            // Despawn the caravan entity
+            commands.entity(entity).despawn();
         }
     }
 }

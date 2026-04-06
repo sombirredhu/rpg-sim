@@ -54,6 +54,7 @@ pub fn enemy_ai_system(
     mut enemies: Query<(Entity, &Enemy, &EnemyStats, &mut EnemyAi, &mut Transform, Option<&mut SpriteAnimation>), Without<Hero>>,
     heroes: Query<(Entity, &Transform), (With<Hero>, Without<Enemy>, Without<Stealthed>)>,
     buildings: Query<(Entity, &Transform, &Building), (Without<Enemy>, Without<Hero>)>,
+    caravans: Query<(Entity, &TradeCaravan, &Transform)>,
     game_time: Res<GameTime>,
     time: Res<Time>,
 ) {
@@ -81,6 +82,21 @@ pub fn enemy_ai_system(
         }
 
         if nearest_target.is_none() || enemy.enemy_type == EnemyType::Bandit {
+            // Consider caravans as targets (range 200)
+            for (caravan_entity, caravan, caravan_transform) in caravans.iter() {
+                if caravan.has_arrived {
+                    continue; // Safe in town
+                }
+                let cpos = Vec2::new(caravan_transform.translation.x, caravan_transform.translation.y);
+                let dist = (cpos - pos).length();
+                if dist < 200.0 {
+                    if nearest_target.is_none() || dist < nearest_target.unwrap().2 {
+                        nearest_target = Some((caravan_entity, cpos, dist));
+                    }
+                }
+            }
+
+            // Consider buildings as targets (range 300, but only at night or bandits)
             for (building_entity, building_transform, building) in buildings.iter() {
                 if building.is_destroyed {
                     continue;

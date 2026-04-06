@@ -206,6 +206,8 @@ struct SCaravan {
     pub leave_timer: f32,
     pub x: f32,
     pub y: f32,
+    pub hp: f32,
+    pub max_hp: f32,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -388,6 +390,8 @@ fn read_save_data(world: &mut World) -> Option<SaveFile> {
                 leave_timer: c.leave_timer,
                 x: t.translation.x,
                 y: t.translation.y,
+                hp: c.hp,
+                max_hp: c.max_hp,
             });
         }
     }
@@ -762,6 +766,8 @@ pub fn load_game_system(world: &mut World) {
                 destination: Vec2::new(c.dest_x, c.dest_y),
                 has_arrived: c.has_arrived,
                 leave_timer: c.leave_timer,
+                hp: c.hp,
+                max_hp: c.max_hp,
             });
     }
 
