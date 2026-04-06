@@ -113,6 +113,7 @@ pub fn auto_bounty_system(
     game_time: Res<GameTime>,
     game_phase: Res<GamePhase>,
     legacy: Res<LegacyUpgrades>,
+    building_bonuses: Res<BuildingBonuses>,
 ) {
     if !game_phase.game_started { return; }
     for (entity, den, transform) in dens.iter() {
@@ -129,13 +130,18 @@ pub fn auto_bounty_system(
             // Apply Legacy Upgrades bounty cost reduction (reward = cost to player)
             let reduction = 1.0 - legacy.bounty_cost_reduction / 100.0;
             reward *= reduction;
+
+            // Determine required heroes based on threat tier and Barracks squad size
+            let base_required = ((den.threat_tier + 1) / 2).max(1);
+            let required_heroes = base_required.min(building_bonuses.max_squad_size);
+
             bounty_board.add_bounty(
                 BountyType::Monster,
                 reward,
                 pos,
                 Some(entity),
                 den.threat_tier,
-                1, // required_heroes
+                required_heroes,
             );
         }
     }
