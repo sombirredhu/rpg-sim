@@ -857,6 +857,7 @@ pub fn era_siege_system(
     mut alerts: ResMut<GameAlerts>,
     mut era_score_data: ResMut<EraScoreData>,
     _game_phase: ResMut<GamePhase>,
+    mut sfx_events: EventWriter<crate::audio::SfxEvent>,
 ) {
     let dt = time.delta_seconds() * game_time.speed_multiplier;
 
@@ -866,6 +867,8 @@ pub fn era_siege_system(
         era.siege_waves_remaining = 5;
         era.siege_spawn_timer = 0.0;
         alerts.push("THE FINAL SIEGE BEGINS! Defend the kingdom!".to_string());
+        // Play siren sound to alert player
+        sfx_events.send(crate::audio::SfxEvent::SiegeSiren);
     }
 
     if !era.siege_active { return; }
