@@ -550,6 +550,7 @@ pub fn hero_attraction_system(
     mut economy: ResMut<GameEconomy>,
     mut spawn_timer: Local<f32>,
     mut alerts: ResMut<GameAlerts>,
+    legacy: Res<LegacyUpgrades>,
 ) {
     if !game_phase.game_started { return; }
     let dt = time.delta_seconds() * game_time.speed_multiplier;
@@ -607,6 +608,7 @@ pub fn hero_attraction_system(
         &sprites,
         class,
         Vec3::new(spawn_pos.x, spawn_pos.y, 10.0),
+        legacy.hero_start_level,
     );
 
     alerts.push(format!("A new {} has arrived!", class.display_name()));

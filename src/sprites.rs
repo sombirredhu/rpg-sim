@@ -655,14 +655,68 @@ pub fn load_sprite_assets(
     });
 }
 
+/// Helper: apply one level-up's worth of stat increases (mirrors hero_progression_system logic)
+fn level_up_hero(class: HeroClass, stats: &mut crate::components::HeroStats, hero: &mut crate::components::Hero) {
+    hero.level += 1;
+    hero.xp_to_next = 100.0 * (1.0 + hero.level as f32 * 0.3);
+
+    // Base stat boosts
+    stats.max_hp += 10.0;
+    stats.hp = stats.max_hp;
+    stats.attack += 2.0;
+    stats.defense += 1.0;
+    stats.speed += 1.0;
+
+    // Legendary at level 10+
+    if hero.level >= 10 && !hero.is_legendary {
+        hero.is_legendary = true;
+        stats.max_hp *= 1.3;
+        stats.hp = stats.max_hp;
+        stats.attack *= 1.25;
+        stats.defense *= 1.2;
+    }
+
+    // Perk every 5 levels
+    if hero.level % 5 == 0 {
+        match class {
+            crate::components::HeroClass::Warrior => {
+                stats.max_hp += 20.0;
+                stats.defense += 3.0;
+                stats.hp = stats.max_hp;
+            }
+            crate::components::HeroClass::Archer => {
+                stats.attack += 5.0;
+                stats.attack_range += 20.0;
+            }
+            crate::components::HeroClass::Mage => {
+                stats.attack += 8.0;
+            }
+            crate::components::HeroClass::Rogue => {
+                stats.speed += 5.0;
+                stats.attack += 4.0;
+            }
+            crate::components::HeroClass::Healer => {
+                stats.max_hp += 15.0;
+                stats.hp = stats.max_hp;
+            }
+        }
+    }
+}
+
 pub fn spawn_hero_with_sprite(
     commands: &mut Commands,
     sprites: &SpriteAssets,
     class: HeroClass,
     position: Vec3,
+    start_level: u32,
 ) -> Entity {
-    let hero = Hero::new(class);
-    let stats = class.base_stats();
+    let mut hero = Hero::new(class);
+    let mut stats = class.base_stats();
+
+    // Apply level-ups to reach start_level (starting from level 1)
+    for _ in 1..start_level {
+        level_up_hero(class, &mut stats, &mut hero);
+    }
 
     let (walk_atlas, attack_atlas, hurt_atlas, attack_frames) = match class {
         HeroClass::Warrior => (
@@ -953,8 +1007,14 @@ pub fn spawn_building_with_sprite(
     sprites: &SpriteAssets,
     building_type: BuildingType,
     position: Vec3,
+    hp_multiplier: f32,
 ) -> Entity {
-    let building = Building::new(building_type);
+    let mut building = Building::new(building_type);
+    // Apply Legacy Upgrades building HP bonus
+    if hp_multiplier != 1.0 {
+        building.max_hp *= hp_multiplier;
+        building.hp = building.max_hp;
+    }
     let tier = building.tier;
 
     let mut entity = commands.spawn_bundle(SpriteBundle {

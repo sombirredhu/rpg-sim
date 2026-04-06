@@ -569,6 +569,7 @@ pub fn resource_node_system(
 pub fn resource_bounty_system(
     mut bounty_board: ResMut<BountyBoard>,
     nodes: Query<(Entity, &ResourceNode, &Transform)>,
+    legacy: Res<LegacyUpgrades>,
 ) {
     for (entity, node, transform) in nodes.iter() {
         if !node.is_active {
@@ -577,7 +578,10 @@ pub fn resource_bounty_system(
                 b.bounty_type == BountyType::Resource && b.target_entity == Some(entity) && !b.is_completed
             });
             if !has_bounty {
-                bounty_board.add_bounty(BountyType::Resource, 15.0, pos, Some(entity), 1, 1);
+                let mut reward = 15.0;
+                let reduction = 1.0 - legacy.bounty_cost_reduction / 100.0;
+                reward *= reduction;
+                bounty_board.add_bounty(BountyType::Resource, reward, pos, Some(entity), 1, 1);
             }
         }
     }
@@ -798,6 +802,7 @@ pub fn milestone_system(
 pub fn recovery_bounty_system(
     mut bounty_board: ResMut<BountyBoard>,
     heroes: Query<(Entity, &Hero, &HeroState, &Transform)>,
+    legacy: Res<LegacyUpgrades>,
 ) {
     for (entity, _hero, state, transform) in heroes.iter() {
         if let HeroState::Dead { .. } = state {
@@ -806,7 +811,10 @@ pub fn recovery_bounty_system(
                 b.bounty_type == BountyType::Objective && b.target_entity == Some(entity) && !b.is_completed
             });
             if !has_bounty {
-                bounty_board.add_bounty(BountyType::Objective, 20.0, pos, Some(entity), 1, 1);
+                let mut reward = 20.0;
+                let reduction = 1.0 - legacy.bounty_cost_reduction / 100.0;
+                reward *= reduction;
+                bounty_board.add_bounty(BountyType::Objective, reward, pos, Some(entity), 1, 1);
             }
         }
     }
@@ -820,6 +828,7 @@ pub fn objective_bounty_system(
     mut bounty_board: ResMut<BountyBoard>,
     buildings: Query<(Entity, &Building, &Transform)>,
     enemies: Query<(&Enemy, &Transform)>,
+    legacy: Res<LegacyUpgrades>,
 ) {
     for (b_entity, building, b_transform) in buildings.iter() {
         if building.is_destroyed { continue; }
@@ -836,7 +845,9 @@ pub fn objective_bounty_system(
                 b.bounty_type == BountyType::Objective && b.target_entity == Some(b_entity) && !b.is_completed
             });
             if !has_bounty {
-                let reward = 25.0 + building.building_type.cost() * 0.1;
+                let mut reward = 25.0 + building.building_type.cost() * 0.1;
+                let reduction = 1.0 - legacy.bounty_cost_reduction / 100.0;
+                reward *= reduction;
                 bounty_board.add_bounty(BountyType::Objective, reward, bpos, Some(b_entity), 2, 2);
             }
         }

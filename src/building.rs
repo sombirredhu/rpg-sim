@@ -19,6 +19,7 @@ pub fn building_placement_system(
     terrain_grid: Option<Res<TerrainGrid>>,
     mut road_network: ResMut<RoadNetwork>,
     mut alerts: ResMut<GameAlerts>,
+    legacy: Res<LegacyUpgrades>,
 ) {
     if !game_phase.build_mode {
         return;
@@ -96,11 +97,13 @@ pub fn building_placement_system(
             economy.gold -= cost;
             economy.total_spent += cost;
 
+            let hp_multiplier = 1.0 + legacy.building_hp_bonus_pct / 100.0;
             spawn_building_with_sprite(
                 &mut commands,
                 &sprites,
                 selected,
                 Vec3::new(world_pos.x, world_pos.y, 5.0),
+                hp_multiplier,
             );
 
             // If bridge, add its position to road network for speed bonus
@@ -248,11 +251,13 @@ pub fn guard_tower_attack_system(
 pub fn spawn_initial_buildings(
     mut commands: Commands,
     sprites: Res<SpriteAssets>,
+    legacy: Res<LegacyUpgrades>,
 ) {
+    let hp_multiplier = 1.0 + legacy.building_hp_bonus_pct / 100.0;
     // Town Hall at center
-    spawn_building_with_sprite(&mut commands, &sprites, BuildingType::TownHall, Vec3::new(0.0, 0.0, 5.0));
+    spawn_building_with_sprite(&mut commands, &sprites, BuildingType::TownHall, Vec3::new(0.0, 0.0, 5.0), hp_multiplier);
     // Inn nearby
-    spawn_building_with_sprite(&mut commands, &sprites, BuildingType::Inn, Vec3::new(150.0, 30.0, 5.0));
+    spawn_building_with_sprite(&mut commands, &sprites, BuildingType::Inn, Vec3::new(150.0, 30.0, 5.0), hp_multiplier);
     // Market
-    spawn_building_with_sprite(&mut commands, &sprites, BuildingType::Market, Vec3::new(-130.0, 50.0, 5.0));
+    spawn_building_with_sprite(&mut commands, &sprites, BuildingType::Market, Vec3::new(-130.0, 50.0, 5.0), hp_multiplier);
 }

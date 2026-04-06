@@ -1858,15 +1858,15 @@ pub fn legacy_back_button_system(
 pub fn update_legacy_upgrades_ui_system(
     kingdom: Res<KingdomState>,
     legacy_upgrades: Res<LegacyUpgrades>,
-    mut points_query: Query<&mut Text, With<LegacyPointsText>>,
-    mut tax_label: Query<&mut Text, With<TaxUpgradeLabel>>,
-    mut hero_start_label: Query<&mut Text, With<HeroStartUpgradeLabel>>,
-    mut building_hp_label: Query<&mut Text, With<BuildingHpUpgradeLabel>>,
-    mut bounty_cost_label: Query<&mut Text, With<BountyCostUpgradeLabel>>,
-    mut tax_clicks: Query<&Interaction, (With<TaxUpgradeButton>, Changed<Interaction>)>,
-    mut hero_start_clicks: Query<&Interaction, (With<HeroStartUpgradeButton>, Changed<Interaction>)>,
-    mut building_hp_clicks: Query<&Interaction, (With<BuildingHpUpgradeButton>, Changed<Interaction>)>,
-    mut bounty_cost_clicks: Query<&Interaction, (With<BountyCostUpgradeButton>, Changed<Interaction>)>,
+    mut points_query: Query<&mut Text, (With<LegacyPointsText>, Without<TaxUpgradeLabel>, Without<HeroStartUpgradeLabel>, Without<BuildingHpUpgradeLabel>, Without<BountyCostUpgradeLabel>)>,
+    mut tax_label: Query<&mut Text, (With<TaxUpgradeLabel>, Without<LegacyPointsText>, Without<HeroStartUpgradeLabel>, Without<BuildingHpUpgradeLabel>, Without<BountyCostUpgradeLabel>)>,
+    mut hero_start_label: Query<&mut Text, (With<HeroStartUpgradeLabel>, Without<LegacyPointsText>, Without<TaxUpgradeLabel>, Without<BuildingHpUpgradeLabel>, Without<BountyCostUpgradeLabel>)>,
+    mut building_hp_label: Query<&mut Text, (With<BuildingHpUpgradeLabel>, Without<LegacyPointsText>, Without<TaxUpgradeLabel>, Without<HeroStartUpgradeLabel>, Without<BountyCostUpgradeLabel>)>,
+    mut bounty_cost_label: Query<&mut Text, (With<BountyCostUpgradeLabel>, Without<LegacyPointsText>, Without<TaxUpgradeLabel>, Without<HeroStartUpgradeLabel>, Without<BuildingHpUpgradeLabel>)>,
+    tax_clicks: Query<&Interaction, (With<TaxUpgradeButton>, Changed<Interaction>)>,
+    hero_start_clicks: Query<&Interaction, (With<HeroStartUpgradeButton>, Changed<Interaction>)>,
+    building_hp_clicks: Query<&Interaction, (With<BuildingHpUpgradeButton>, Changed<Interaction>)>,
+    bounty_cost_clicks: Query<&Interaction, (With<BountyCostUpgradeButton>, Changed<Interaction>)>,
     mut kingdom_res: ResMut<KingdomState>,
     mut legacy_res: ResMut<LegacyUpgrades>,
 ) {
@@ -1894,8 +1894,8 @@ pub fn update_legacy_upgrades_ui_system(
             text.sections[0].value = format!("Tax Bonus: +{}% (+5% for {} LP)", legacy_upgrades.tax_bonus_pct as u32, COST_TAX);
         }
     }
-    if !tax_clicks.is_empty() && kingdom.legacy_points >= COST_TAX as f32 && tax_level < MAX_LEVEL_TAX {
-        kingdom_res.legacy_points -= COST_TAX as f32;
+    if !tax_clicks.is_empty() && kingdom.legacy_points >= COST_TAX && tax_level < MAX_LEVEL_TAX {
+        kingdom_res.legacy_points -= COST_TAX;
         legacy_res.tax_bonus_pct += 5.0;
     }
 
@@ -1911,8 +1911,8 @@ pub fn update_legacy_upgrades_ui_system(
     }
     for _ in hero_start_clicks.iter() {
         let cost = COST_HERO_START * hero_level;
-        if kingdom.legacy_points >= cost as f32 && hero_level < MAX_LEVEL_HERO_START {
-            kingdom_res.legacy_points -= cost as f32;
+        if kingdom.legacy_points >= cost && hero_level < MAX_LEVEL_HERO_START {
+            kingdom_res.legacy_points -= cost;
             legacy_res.hero_start_level += 1;
         }
     }
@@ -1927,8 +1927,8 @@ pub fn update_legacy_upgrades_ui_system(
         }
     }
     for _ in building_hp_clicks.iter() {
-        if kingdom.legacy_points >= COST_BUILDING_HP as f32 && bh_level < MAX_LEVEL_BUILDING_HP {
-            kingdom_res.legacy_points -= COST_BUILDING_HP as f32;
+        if kingdom.legacy_points >= COST_BUILDING_HP && bh_level < MAX_LEVEL_BUILDING_HP {
+            kingdom_res.legacy_points -= COST_BUILDING_HP;
             legacy_res.building_hp_bonus_pct += 5.0;
         }
     }
@@ -1943,8 +1943,8 @@ pub fn update_legacy_upgrades_ui_system(
         }
     }
     for _ in bounty_cost_clicks.iter() {
-        if kingdom.legacy_points >= COST_BOUNTY_COST as f32 && bc_level < MAX_LEVEL_BOUNTY_COST {
-            kingdom_res.legacy_points -= COST_BOUNTY_COST as f32;
+        if kingdom.legacy_points >= COST_BOUNTY_COST && bc_level < MAX_LEVEL_BOUNTY_COST {
+            kingdom_res.legacy_points -= COST_BOUNTY_COST;
             legacy_res.bounty_cost_reduction += 2.0;
         }
     }

@@ -251,6 +251,7 @@ fn setup_camera(mut commands: Commands) {
 fn spawn_initial_heroes(
     mut commands: Commands,
     sprites: Res<SpriteAssets>,
+    legacy: Res<LegacyUpgrades>,
 ) {
     let starting_heroes = [
         (HeroClass::Warrior, Vec2::new(40.0, -20.0)),
@@ -264,6 +265,7 @@ fn spawn_initial_heroes(
             &sprites,
             class,
             Vec3::new(offset.x, offset.y, 10.0),
+            legacy.hero_start_level,
         );
     }
 }
