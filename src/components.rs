@@ -84,6 +84,70 @@ pub struct RepairButton;
 pub struct RepairButtonText;
 
 // ============================================================
+// LEGACY UPGRADE UI
+// ============================================================
+
+/// Marker for the Legacy Upgrades screen panel (hidden by default)
+#[derive(Component)]
+pub struct LegacyUpgradeScreen;
+
+/// Marker for the Legacy Points display text
+#[derive(Component)]
+pub struct LegacyPointsText;
+
+/// Marker for the tax bonus upgrade row
+#[derive(Component)]
+pub struct TaxUpgradeRow;
+
+/// Marker for the hero start level upgrade row
+#[derive(Component)]
+pub struct HeroStartUpgradeRow;
+
+/// Marker for the building HP upgrade row
+#[derive(Component)]
+pub struct BuildingHpUpgradeRow;
+
+/// Marker for the bounty cost reduction upgrade row
+#[derive(Component)]
+pub struct BountyCostUpgradeRow;
+
+/// Marker for upgrade buttons
+#[derive(Component)]
+pub struct TaxUpgradeButton;
+#[derive(Component)]
+pub struct HeroStartUpgradeButton;
+#[derive(Component)]
+pub struct BuildingHpUpgradeButton;
+#[derive(Component)]
+pub struct BountyCostUpgradeButton;
+
+/// Marker for the label text of each upgrade row (for UI updates)
+#[derive(Component)]
+pub struct TaxUpgradeLabel;
+#[derive(Component)]
+pub struct HeroStartUpgradeLabel;
+#[derive(Component)]
+pub struct BuildingHpUpgradeLabel;
+#[derive(Component)]
+pub struct BountyCostUpgradeLabel;
+
+/// Marker for the Legacy button in the top bar
+#[derive(Component)]
+pub struct LegacyButton;
+
+/// Marker for the Back button inside the Legacy Upgrades screen
+#[derive(Component)]
+pub struct LegacyBackButton;
+
+/// Marker for the challenge indicator in the top bar
+#[derive(Component)]
+pub struct ChallengeIndicator;
+
+/// Marker for the challenge indicator text
+#[derive(Component)]
+pub struct ChallengeIndicatorText;
+
+// ============================================================
 // HERO COMPONENTS
 // ============================================================
 
@@ -287,6 +351,15 @@ pub enum ZoneType {
     Forest,   // Dense forests, goblins/bandits, lumber resources
     Mountain, // Rocky mountains, trolls, mining resources
     Dungeon,  // Dark dungeons, elite enemies, high threat
+}
+
+/// Challenge modifiers that can be applied to an era for increased difficulty/rewards
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ChallengeModifier {
+    None,
+    DoubleBounties,  // All bounty rewards are doubled
+    PermanentDeath, // Dead heroes cannot be revived via recovery bounties
+    // NoInns,        // Inns provide no healing/rest (reserved for future)
 }
 
 impl ZoneType {
@@ -954,6 +1027,7 @@ pub struct KingdomState {
     pub hero_count: u32,
     pub buildings_count: u32,
     pub score: u32,
+    pub challenge_modifier: ChallengeModifier,
 }
 
 impl Default for KingdomState {
@@ -966,6 +1040,7 @@ impl Default for KingdomState {
             hero_count: 0,
             buildings_count: 0,
             score: 0,
+            challenge_modifier: ChallengeModifier::None,
         }
     }
 }
@@ -1405,6 +1480,8 @@ pub struct TradeCaravan {
     pub destination: Vec2,
     pub has_arrived: bool,
     pub leave_timer: f32,
+    pub hp: f32,
+    pub max_hp: f32,
 }
 
 /// Tracks active rare-item buffs applied to the kingdom
@@ -1850,3 +1927,12 @@ pub struct MusicVolume(pub f32);
 /// Camera pan speed multiplier (1.0 = default)
 #[derive(Default)]
 pub struct CameraSpeed(pub f32);
+
+/// Tracks long-press interaction state for showing contextual info cards
+#[derive(Default)]
+pub struct LongPressState {
+    pub active: bool,
+    pub start_time: f32,
+    pub entity: Option<Entity>,
+    pub threshold: f32,
+}

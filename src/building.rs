@@ -19,6 +19,8 @@ pub fn building_placement_system(
     terrain_grid: Option<Res<TerrainGrid>>,
     mut road_network: ResMut<RoadNetwork>,
     mut alerts: ResMut<GameAlerts>,
+    legacy: Res<LegacyUpgrades>,
+    mut fog: ResMut<FogOfWar>,
 ) {
     if !game_phase.build_mode {
         return;
@@ -40,6 +42,15 @@ pub fn building_placement_system(
                 None => return,
             };
 
+            // Compute tile coordinates for grid snapping
+            let offset_x = -(GRID_W as f32 * TILE_SIZE / 2.0);
+            let offset_y = -(GRID_H as f32 * TILE_SIZE / 2.0);
+            let tile_x = ((world_pos.x - offset_x) / TILE_SIZE).round() as usize;
+            let tile_y = ((world_pos.y - offset_y) / TILE_SIZE).round() as usize;
+
+            // Snap position to tile center for grid-based placement
+            world_pos = tile_to_world(tile_x, tile_y, offset_x, offset_y);
+
             let cost = selected.cost();
             if economy.gold < cost {
                 alerts.push(format!("Not enough gold! Need {:.0}", cost));
@@ -52,6 +63,7 @@ pub fn building_placement_system(
             }
 
             // Overlap check: prevent placing too close to existing buildings
+            // Use snapped position to ensure accurate spacing
             const BUILDING_MIN_SPACING: f32 = 50.0;
             for (_, transform) in buildings.iter() {
                 let existing_pos = Vec2::new(transform.translation.x, transform.translation.y);
@@ -63,11 +75,6 @@ pub fn building_placement_system(
 
             // Terrain validation: bridges only on water; other buildings not on water
             if let Some(terrain_grid_res) = terrain_grid.as_ref() {
-                let offset_x = -(GRID_W as f32 * TILE_SIZE / 2.0);
-                let offset_y = -(GRID_H as f32 * TILE_SIZE / 2.0);
-                let tile_x = ((world_pos.x - offset_x) / TILE_SIZE).round() as usize;
-                let tile_y = ((world_pos.y - offset_y) / TILE_SIZE).round() as usize;
-
                 if tile_x < GRID_W && tile_y < GRID_H {
                     if let Some(row) = terrain_grid_res.grid.get(tile_x) {
                         if let Some(terrain) = row.get(tile_y) {
@@ -77,8 +84,6 @@ pub fn building_placement_system(
                                     alerts.push("Bridges can only be built on water tiles!".to_string());
                                     return;
                                 }
-                                // Snap bridge position to tile center for proper alignment
-                                world_pos = tile_to_world(tile_x, tile_y, offset_x, offset_y);
                             } else {
                                 if is_water {
                                     alerts.push("Cannot build on water!".to_string());
@@ -93,16 +98,21 @@ pub fn building_placement_system(
             economy.gold -= cost;
             economy.total_spent += cost;
 
+            let hp_multiplier = 1.0 + legacy.building_hp_bonus_pct / 100.0;
             spawn_building_with_sprite(
                 &mut commands,
                 &sprites,
                 selected,
                 Vec3::new(world_pos.x, world_pos.y, 5.0),
+                hp_multiplier,
             );
 
-            // If bridge, add its position to road network for speed bonus
+            // If bridge, add its position to road network and expand revealed area
             if selected == BuildingType::Bridge {
                 road_network.tiles.push(world_pos);
+                // Expand fog of war to open new sectors
+                fog.revealed_radius += 200.0;
+                fog.expansions += 1;
             }
 
             alerts.push(format!("{} built for {:.0} gold!", selected.display_name(), cost));
@@ -245,11 +255,13 @@ pub fn guard_tower_attack_system(
 pub fn spawn_initial_buildings(
     mut commands: Commands,
     sprites: Res<SpriteAssets>,
+    legacy: Res<LegacyUpgrades>,
 ) {
+    let hp_multiplier = 1.0 + legacy.building_hp_bonus_pct / 100.0;
     // Town Hall at center
-    spawn_building_with_sprite(&mut commands, &sprites, BuildingType::TownHall, Vec3::new(0.0, 0.0, 5.0));
+    spawn_building_with_sprite(&mut commands, &sprites, BuildingType::TownHall, Vec3::new(0.0, 0.0, 5.0), hp_multiplier);
     // Inn nearby
-    spawn_building_with_sprite(&mut commands, &sprites, BuildingType::Inn, Vec3::new(150.0, 30.0, 5.0));
+    spawn_building_with_sprite(&mut commands, &sprites, BuildingType::Inn, Vec3::new(150.0, 30.0, 5.0), hp_multiplier);
     // Market
-    spawn_building_with_sprite(&mut commands, &sprites, BuildingType::Market, Vec3::new(-130.0, 50.0, 5.0));
+    spawn_building_with_sprite(&mut commands, &sprites, BuildingType::Market, Vec3::new(-130.0, 50.0, 5.0), hp_multiplier);
 }

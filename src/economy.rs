@@ -7,6 +7,7 @@ pub fn tax_collection_system(
     game_time: Res<GameTime>,
     buildings: Query<&Building>,
     bonuses: Res<BuildingBonuses>,
+    legacy: Res<LegacyUpgrades>,
     time: Res<Time>,
 ) {
     // Calculate income per real second based on building taxes
@@ -20,6 +21,10 @@ pub fn tax_collection_system(
     // Apply road connection tax bonus (Market connected to buildings via roads)
     let road_multiplier = 1.0 + bonuses.road_tax_bonus_pct / 100.0;
     property_tax_per_minute *= road_multiplier;
+
+    // Apply Legacy Upgrades tax bonus
+    let legacy_tax_multiplier = 1.0 + legacy.tax_bonus_pct / 100.0;
+    property_tax_per_minute *= legacy_tax_multiplier;
 
     // Store the current per-minute rate (will be averaged with time in breakdown system)
     economy.property_tax_income_per_minute = property_tax_per_minute;
@@ -107,6 +112,9 @@ pub fn auto_bounty_system(
     dens: Query<(Entity, &MonsterDen, &Transform)>,
     game_time: Res<GameTime>,
     game_phase: Res<GamePhase>,
+    legacy: Res<LegacyUpgrades>,
+    building_bonuses: Res<BuildingBonuses>,
+    kingdom: Res<KingdomState>,
 ) {
     if !game_phase.game_started { return; }
     for (entity, den, transform) in dens.iter() {
@@ -119,14 +127,27 @@ pub fn auto_bounty_system(
 
         if !has_bounty {
             // Auto-create bounty based on threat level
-            let reward = 20.0 * den.threat_tier as f32 * game_time.threat_multiplier();
+            let mut reward = 20.0 * den.threat_tier as f32 * game_time.threat_multiplier();
+            // Apply Legacy Upgrades bounty cost reduction (reward = cost to player)
+            let reduction = 1.0 - legacy.bounty_cost_reduction / 100.0;
+            reward *= reduction;
+
+            // Determine required heroes based on threat tier and Barracks squad size
+            let base_required = ((den.threat_tier + 1) / 2).max(1);
+            let required_heroes = base_required.min(building_bonuses.max_squad_size);
+
+            // Apply Double Bounties challenge modifier
+            if kingdom.challenge_modifier == ChallengeModifier::DoubleBounties {
+                reward *= 2.0;
+            }
+
             bounty_board.add_bounty(
                 BountyType::Monster,
                 reward,
                 pos,
                 Some(entity),
                 den.threat_tier,
-                1, // required_heroes
+                required_heroes,
             );
         }
     }

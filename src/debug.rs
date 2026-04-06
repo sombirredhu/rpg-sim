@@ -546,7 +546,7 @@ pub fn debug_command_executor(
                     let x = (rand::random::<f32>() - 0.5) * 100.0;
                     let y = (rand::random::<f32>() - 0.5) * 100.0;
                     let pos = Vec3::new(x, y, 10.0);
-                    crate::sprites::spawn_hero_with_sprite(&mut commands, sprites, hero_class, pos);
+                    crate::sprites::spawn_hero_with_sprite(&mut commands, sprites, hero_class, pos, 1);
                     dc_push(dc, &format!("  Spawned {:?} at ({:.0}, {:.0})", hero_class, x, y));
                 } else {
                     dc_push(dc, "  Sprites not loaded yet");

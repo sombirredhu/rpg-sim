@@ -12,6 +12,7 @@ use crate::sprites::{
     spawn_enemy_with_sprite,
 };
 use crate::map_layout::TILE_SIZE;
+use rand::{Rng, seq::SliceRandom};
 use std::collections::HashSet;
 use std::collections::HashMap;
 use std::f32::consts::TAU;
@@ -379,6 +380,8 @@ pub fn trade_caravan_spawn_system(
     time: Res<Time>,
     mut timer: Local<f32>,
     mut alerts: ResMut<GameAlerts>,
+    mut bounty_board: ResMut<BountyBoard>,
+    legacy: Res<LegacyUpgrades>,
 ) {
     if game_time.is_night() { return; } // Caravans only during day
 
@@ -402,7 +405,7 @@ pub fn trade_caravan_spawn_system(
     let angle = rand::random::<f32>() * TAU;
     let start = Vec2::new(angle.cos() * 550.0, angle.sin() * 550.0);
 
-    commands.spawn_bundle(SpriteBundle {
+    let caravan_entity = commands.spawn_bundle(SpriteBundle {
         texture: sprites.caravan_sprites.lvl1.clone(),
         transform: Transform::from_translation(Vec3::new(start.x, start.y, 9.0))
             .with_scale(Vec3::splat(0.25)),
@@ -413,7 +416,23 @@ pub fn trade_caravan_spawn_system(
         destination: Vec2::ZERO,
         has_arrived: false,
         leave_timer: 20.0,
-    });
+        hp: 100.0,
+        max_hp: 100.0,
+    })
+    .id();
+
+    // Create escort bounty for this caravan
+    let mut reward = 30.0 + item.cost() as f32 * 0.5;
+    let reduction = 1.0 - legacy.bounty_cost_reduction / 100.0;
+    reward *= reduction;
+    bounty_board.add_bounty(
+        crate::components::BountyType::Objective,
+        reward,
+        start,
+        Some(caravan_entity),
+        2, // danger_level
+        1, // required_heroes
+    );
 
     alerts.push(format!(
         "Trade caravan with {} approaching! (cost: {:.0}g)",
@@ -500,6 +519,28 @@ pub fn trade_caravan_movement_system(
     }
 }
 
+/// System: Clean up destroyed caravans and alert player
+pub fn caravan_death_system(
+    mut commands: Commands,
+    mut caravans: Query<(Entity, &TradeCaravan)>,
+    mut bounty_board: ResMut<BountyBoard>,
+    mut alerts: ResMut<GameAlerts>,
+) {
+    for (entity, caravan) in caravans.iter_mut() {
+        if caravan.hp <= 0.0 {
+            // Remove any associated bounty
+            bounty_board.bounties.retain(|b| b.target_entity != Some(entity));
+            // Alert player
+            alerts.push(format!(
+                "Caravan destroyed! The {} shipment has been lost.",
+                caravan.item.display_name()
+            ));
+            // Despawn the caravan entity
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
 /// Tick down active buff timers and clear expired buffs
 pub fn active_buffs_system(
     mut active_buffs: ResMut<ActiveBuffs>,
@@ -569,6 +610,8 @@ pub fn resource_node_system(
 pub fn resource_bounty_system(
     mut bounty_board: ResMut<BountyBoard>,
     nodes: Query<(Entity, &ResourceNode, &Transform)>,
+    legacy: Res<LegacyUpgrades>,
+    kingdom: Res<KingdomState>,
 ) {
     for (entity, node, transform) in nodes.iter() {
         if !node.is_active {
@@ -577,7 +620,14 @@ pub fn resource_bounty_system(
                 b.bounty_type == BountyType::Resource && b.target_entity == Some(entity) && !b.is_completed
             });
             if !has_bounty {
-                bounty_board.add_bounty(BountyType::Resource, 15.0, pos, Some(entity), 1, 1);
+                let mut reward = 15.0;
+                let reduction = 1.0 - legacy.bounty_cost_reduction / 100.0;
+                reward *= reduction;
+                // Apply Double Bounties challenge modifier
+                if kingdom.challenge_modifier == ChallengeModifier::DoubleBounties {
+                    reward *= 2.0;
+                }
+                bounty_board.add_bounty(BountyType::Resource, reward, pos, Some(entity), 1, 1);
             }
         }
     }
@@ -798,15 +848,28 @@ pub fn milestone_system(
 pub fn recovery_bounty_system(
     mut bounty_board: ResMut<BountyBoard>,
     heroes: Query<(Entity, &Hero, &HeroState, &Transform)>,
+    legacy: Res<LegacyUpgrades>,
+    kingdom: Res<KingdomState>,
 ) {
     for (entity, _hero, state, transform) in heroes.iter() {
         if let HeroState::Dead { .. } = state {
+            // Skip recovery bounties during Permanent Death challenge
+            if kingdom.challenge_modifier == ChallengeModifier::PermanentDeath {
+                continue;
+            }
             let pos = Vec2::new(transform.translation.x, transform.translation.y);
             let has_bounty = bounty_board.bounties.iter().any(|b| {
                 b.bounty_type == BountyType::Objective && b.target_entity == Some(entity) && !b.is_completed
             });
             if !has_bounty {
-                bounty_board.add_bounty(BountyType::Objective, 20.0, pos, Some(entity), 1, 1);
+                let mut reward = 20.0;
+                let reduction = 1.0 - legacy.bounty_cost_reduction / 100.0;
+                reward *= reduction;
+                // Apply Double Bounties challenge modifier
+                if kingdom.challenge_modifier == ChallengeModifier::DoubleBounties {
+                    reward *= 2.0;
+                }
+                bounty_board.add_bounty(BountyType::Objective, reward, pos, Some(entity), 1, 1);
             }
         }
     }
@@ -820,6 +883,8 @@ pub fn objective_bounty_system(
     mut bounty_board: ResMut<BountyBoard>,
     buildings: Query<(Entity, &Building, &Transform)>,
     enemies: Query<(&Enemy, &Transform)>,
+    legacy: Res<LegacyUpgrades>,
+    kingdom: Res<KingdomState>,
 ) {
     for (b_entity, building, b_transform) in buildings.iter() {
         if building.is_destroyed { continue; }
@@ -836,7 +901,13 @@ pub fn objective_bounty_system(
                 b.bounty_type == BountyType::Objective && b.target_entity == Some(b_entity) && !b.is_completed
             });
             if !has_bounty {
-                let reward = 25.0 + building.building_type.cost() * 0.1;
+                let mut reward = 25.0 + building.building_type.cost() * 0.1;
+                let reduction = 1.0 - legacy.bounty_cost_reduction / 100.0;
+                reward *= reduction;
+                // Apply Double Bounties challenge modifier
+                if kingdom.challenge_modifier == ChallengeModifier::DoubleBounties {
+                    reward *= 2.0;
+                }
                 bounty_board.add_bounty(BountyType::Objective, reward, bpos, Some(b_entity), 2, 2);
             }
         }
@@ -857,6 +928,7 @@ pub fn era_siege_system(
     mut alerts: ResMut<GameAlerts>,
     mut era_score_data: ResMut<EraScoreData>,
     _game_phase: ResMut<GamePhase>,
+    mut sfx_events: EventWriter<crate::audio::SfxEvent>,
 ) {
     let dt = time.delta_seconds() * game_time.speed_multiplier;
 
@@ -866,6 +938,8 @@ pub fn era_siege_system(
         era.siege_waves_remaining = 5;
         era.siege_spawn_timer = 0.0;
         alerts.push("THE FINAL SIEGE BEGINS! Defend the kingdom!".to_string());
+        // Play siren sound to alert player
+        sfx_events.send(crate::audio::SfxEvent::SiegeSiren);
     }
 
     if !era.siege_active { return; }
@@ -996,6 +1070,25 @@ pub fn era_continue_button_system(
 
             // Hide score screen
             era_score_data.show = false;
+
+            // Determine if next era is a challenge (30% chance)
+            let mut rng = rand::thread_rng();
+            let challenges = vec![
+                ChallengeModifier::DoubleBounties,
+                ChallengeModifier::PermanentDeath,
+            ];
+            if !challenges.is_empty() && rng.gen_bool(0.3) {
+                kingdom.challenge_modifier = *challenges.choose(&mut rng).unwrap();
+                let name = match kingdom.challenge_modifier {
+                    ChallengeModifier::DoubleBounties => "DOUBLE BOUNTIES",
+                    ChallengeModifier::PermanentDeath => "PERMANENT DEATH",
+                    _ => "UNKNOWN",
+                };
+                alerts.push(format!("CHALLENGE ERA: {}! Good luck... or not.", name));
+            } else {
+                kingdom.challenge_modifier = ChallengeModifier::None;
+                alerts.push("Normal era.".to_string());
+            }
 
             alerts.push(format!("ERA {} BEGIN! Good luck!", kingdom.era));
         }

@@ -13,6 +13,7 @@ pub enum SfxEvent {
     CoinReward,
     HitImpact,
     DeathWomp,
+    SiegeSiren,
 }
 
 /// Startup system: load all audio assets and start background music
@@ -35,6 +36,7 @@ pub fn setup_audio(
         sfx_hit_impact,
         sfx_death_womp,
     });
+    // Note: SiegeSiren will reuse death_womp as placeholder until a dedicated siren sound is added
 }
 
 /// System: reads SfxEvent events and plays the matching sound effect
@@ -48,6 +50,7 @@ pub fn play_sfx_system(
             SfxEvent::CoinReward => audio_assets.sfx_coin_reward.clone(),
             SfxEvent::HitImpact => audio_assets.sfx_hit_impact.clone(),
             SfxEvent::DeathWomp => audio_assets.sfx_death_womp.clone(),
+            SfxEvent::SiegeSiren => audio_assets.sfx_death_womp.clone(), // Placeholder: use death_womp until dedicated siren asset added
         };
         audio.play(handle);
     }

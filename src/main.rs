@@ -226,6 +226,10 @@ fn main() {
         .add_system(ui::update_repair_button_ui)
         .add_system(ui::repair_button_click_system)
         .add_system(ui::update_economy_breakdown_ui)
+        // Legacy Upgrade UI systems
+        .add_system(ui::legacy_button_system)
+        .add_system(ui::legacy_back_button_system)
+        .add_system(ui::update_legacy_upgrades_ui_system)
         // Debug console
         .add_system(debug::debug_console_input)
         .add_system(debug::debug_command_executor)
@@ -247,6 +251,7 @@ fn setup_camera(mut commands: Commands) {
 fn spawn_initial_heroes(
     mut commands: Commands,
     sprites: Res<SpriteAssets>,
+    legacy: Res<LegacyUpgrades>,
 ) {
     let starting_heroes = [
         (HeroClass::Warrior, Vec2::new(40.0, -20.0)),
@@ -260,6 +265,7 @@ fn spawn_initial_heroes(
             &sprites,
             class,
             Vec3::new(offset.x, offset.y, 10.0),
+            legacy.hero_start_level,
         );
     }
 }

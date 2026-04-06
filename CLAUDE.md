@@ -26,11 +26,59 @@ cargo build            # Build only
 
 ## Git Workflow
 
-- **NEVER merge branches into main unless the user explicitly asks you to.**
-- Work on feature branches when needed.
-- Always commit changes before switching branches.
-- Do not change, checkout, merge, or interact with any branch other than the current one unless explicitly instructed by the user.
+- **NEVER merge branches into main** without explicit user permission.
+- Work on feature branches. Always commit before switching branches.
+- Do not interact with any branch other than current unless instructed.
 - All testing must be performed only within the current branch.
+
+## Execution Rules
+
+### Core Constraints
+- Never switch/merge/modify branches without explicit permission.
+- All work, testing, execution stay strictly in current active branch.
+- Only work on explicitly requested feature or task.
+- Do not scan, analyze, or refactor entire codebase unless instructed.
+- Limit file access to only those required for current task.
+
+### Feature Workflow ("start creating pending feature")
+1. Create/switch to dedicated feature branch (create if not exists).
+2. Read **only** PENDING_FEATURES.md; select next feature.
+3. Update the feature status in PENDING_FEATURES.md (change [ ] to [WIP] or add [WIP] marker).
+4. Implement **only** that feature.
+5. Validate alignment with GDD; adjust/redefine until aligned.
+6. Test game strictly within current branch.
+7. Run `cargo run` and verify smooth operation; fix only issues caused by this feature.
+8. After testing, always close the game.
+9. Stop after one feature unless explicitly instructed to continue.
+10. Update the feature status in PENDING_FEATURES.md (change [WIP] to [x]).
+11. Do not consider a task complete until the game runs without issues after your changes.
+
+### Multiple Features
+If instructed to create multiple/all pending features:
+- Repeat full Feature Workflow sequentially.
+- Complete one feature fully before starting next.
+
+### Context & Optimization
+- After completing a feature, **discard all feature-specific context**.
+- Do not reuse previous feature context.
+- Retain only: GDD, current feature requirements, core system rules.
+- If full clearing impossible: strictly ignore previous feature details.
+- Prefer minimal, direct code changes over large rewrites.
+- Avoid re-reading unchanged files; avoid regenerating code.
+- Avoid verbose explanations; summarize reasoning, don't expand.
+
+### Testing & Errors
+- Test only functionality impacted by current feature.
+- Do not run full project tests unless explicitly required.
+- Fix only errors related to current feature scope.
+- Do not attempt global optimizations or unrelated bug fixes.
+
+### Communication & Safety
+- Respond with concise outputs; prefer code over explanations.
+- Do not repeat previous outputs unless necessary.
+- Do not modify main or shared branches.
+- Do not overwrite unrelated code.
+- Ensure changes isolated to current feature branch.
 
 ## Project Structure
 
@@ -107,32 +155,3 @@ All features and their current implementation status are tracked in [PENDING_FEA
 Check these files for detailed patterns when working on related code:
 
 - [Architectural Patterns](.claude/docs/architectural_patterns.md) — ECS patterns, state management, system communication, asset loading, and combat model conventions used across the codebase
-
-## Workflow: Troubleshoot After Every Task
-
-After completing every task, you **must** troubleshoot the game by running it:
-
-1. Run `cargo run` to build and launch the game
-2. Verify the game starts and runs smoothly without errors or crashes
-3. If the game fails to compile, crashes, or exhibits broken behavior:
-   - Read the error output carefully to identify the root cause
-   - Fix the issue(s) in the code
-   - Re-run `cargo run` to verify the fix
-4. Repeat step 3 until the game runs smoothly
-5. After testing alwasy close the game app (which was created with `cargo run`)
-
-## Definition: "Start creating pending feature"
-1. Switch to a dedicated feature branch (create one if it does not exist).
-2. Select the next feature from pending_features.md.
-3. Implement the feature.
-4. Validate alignment with the GDD; if not aligned, adjust or redefine the feature and repeat until aligned.
-5. Test the game within the current branch and fix any issues.
-6. If instructed to create multiple/all pending features, repeat the above steps sequentially for each feature; otherwise, stop after one.
-
-## Context handling:
-1. After completing a feature (implementation + testing), discard its working context before starting the next feature.
-2. Do not reuse or reference previous feature-specific context when working on a new feature.
-3. Retain only global instructions (e.g., GDD, branch rules, system constraints).
-4. If full context clearing is not possible, strictly limit active context to the current feature only.
-
-Do not consider a task complete until the game runs without issues after your changes.

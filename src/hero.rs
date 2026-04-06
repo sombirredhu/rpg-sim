@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use crate::components::*;
 use crate::sprites::{SpriteAssets, spawn_hero_with_sprite};
+use crate::map_layout::{GRID_W, GRID_H, TILE_SIZE};
+use crate::noise_map::{world_to_tile, NoiseTerrain};
 use std::f32::consts::TAU;
 
 /// Returns the signing bonus required for a hero class (0 for basic classes)
@@ -259,6 +261,8 @@ pub fn hero_ai_system(
 pub fn hero_movement_system(
     mut heroes: Query<(&Hero, &HeroStats, &mut HeroState, &mut Transform, Option<&mut SpriteAnimation>)>,
     enemies: Query<&Transform, (With<Enemy>, Without<Hero>)>,
+    terrain_grid: Option<Res<TerrainGrid>>,
+    bridges: Query<(&Building, &Transform), Without<Hero>>,
     bounty_board: Res<BountyBoard>,
     road_network: Res<RoadNetwork>,
     active_buffs: Res<ActiveBuffs>,
@@ -270,10 +274,39 @@ pub fn hero_movement_system(
         return;
     }
 
+    // Offsets for tile coordinate conversion (same as in building.rs)
+    let offset_x = -(GRID_W as f32 * TILE_SIZE / 2.0);
+    let offset_y = -(GRID_H as f32 * TILE_SIZE / 2.0);
+
     for (_hero, stats, mut state, mut transform, anim_opt) in heroes.iter_mut() {
         match &*state {
             HeroState::MovingTo { target } => {
                 let pos = Vec2::new(transform.translation.x, transform.translation.y);
+                // Check if standing on water without bridge - block movement
+                if let Some(terrain_grid_res) = terrain_grid.as_ref() {
+                    let (tile_x, tile_y) = world_to_tile(pos, offset_x, offset_y);
+                    if tile_x < GRID_W && tile_y < GRID_H {
+                        if let Some(row) = terrain_grid_res.grid.get(tile_x) {
+                            if let Some(NoiseTerrain::Water) = row.get(tile_y) {
+                                // Check for bridge at this position
+                                let mut on_bridge = false;
+                                for (bridge, b_t) in bridges.iter() {
+                                    if bridge.building_type == BuildingType::Bridge {
+                                        let bpos = Vec2::new(b_t.translation.x, b_t.translation.y);
+                                        if (bpos - pos).length() < TILE_SIZE * 0.5 {
+                                            on_bridge = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if !on_bridge {
+                                    *state = HeroState::Idle;
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                }
                 let dir = *target - pos;
                 let dist = dir.length();
 
@@ -295,6 +328,30 @@ pub fn hero_movement_system(
                 // Move toward enemy
                 if let Ok(enemy_transform) = enemies.get(*target_entity) {
                     let pos = Vec2::new(transform.translation.x, transform.translation.y);
+                    // Check water obstacle
+                    if let Some(terrain_grid_res) = terrain_grid.as_ref() {
+                        let (tile_x, tile_y) = world_to_tile(pos, offset_x, offset_y);
+                        if tile_x < GRID_W && tile_y < GRID_H {
+                            if let Some(row) = terrain_grid_res.grid.get(tile_x) {
+                                if let Some(NoiseTerrain::Water) = row.get(tile_y) {
+                                    let mut on_bridge = false;
+                                    for (bridge, b_t) in bridges.iter() {
+                                        if bridge.building_type == BuildingType::Bridge {
+                                            let bpos = Vec2::new(b_t.translation.x, b_t.translation.y);
+                                            if (bpos - pos).length() < TILE_SIZE * 0.5 {
+                                                on_bridge = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if !on_bridge {
+                                        *state = HeroState::Idle;
+                                        continue;
+                                    }
+                                }
+                            }
+                        }
+                    }
                     let enemy_pos = Vec2::new(enemy_transform.translation.x, enemy_transform.translation.y);
                     let dir = enemy_pos - pos;
                     let dist = dir.length();
@@ -317,6 +374,30 @@ pub fn hero_movement_system(
             HeroState::PursuingBounty { bounty_id } => {
                 if let Some(bounty) = bounty_board.get_bounty(*bounty_id) {
                     let pos = Vec2::new(transform.translation.x, transform.translation.y);
+                    // Check water obstacle
+                    if let Some(terrain_grid_res) = terrain_grid.as_ref() {
+                        let (tile_x, tile_y) = world_to_tile(pos, offset_x, offset_y);
+                        if tile_x < GRID_W && tile_y < GRID_H {
+                            if let Some(row) = terrain_grid_res.grid.get(tile_x) {
+                                if let Some(NoiseTerrain::Water) = row.get(tile_y) {
+                                    let mut on_bridge = false;
+                                    for (bridge, b_t) in bridges.iter() {
+                                        if bridge.building_type == BuildingType::Bridge {
+                                            let bpos = Vec2::new(b_t.translation.x, b_t.translation.y);
+                                            if (bpos - pos).length() < TILE_SIZE * 0.5 {
+                                                on_bridge = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if !on_bridge {
+                                        *state = HeroState::Idle;
+                                        continue;
+                                    }
+                                }
+                            }
+                        }
+                    }
                     let dir = bounty.location - pos;
                     let dist = dir.length();
 
@@ -353,6 +434,7 @@ pub fn bounty_resolution_system(
     resource_nodes: Query<&ResourceNode>,
     buildings: Query<(&Building, &Transform)>,
     enemies: Query<&Transform, With<Enemy>>,
+    caravans: Query<(&TradeCaravan, &Transform)>,
     mut events: EventWriter<BountyCompletedEvent>,
 ) {
     for (hero_entity, mut state, transform) in heroes.iter_mut() {
@@ -413,6 +495,10 @@ pub fn bounty_resolution_system(
                             (epos - bpos).length() < 150.0
                         });
                         near_bounty && !building.is_destroyed && !enemies_nearby
+                    } else if let Ok((caravan, caravan_transform)) = caravans.get(target) {
+                        let cpos = Vec2::new(caravan_transform.translation.x, caravan_transform.translation.y);
+                        let hero_near_caravan = (hero_pos - cpos).length() <= 50.0;
+                        caravan.has_arrived && hero_near_caravan
                     } else {
                         near_bounty
                     }
@@ -550,6 +636,7 @@ pub fn hero_attraction_system(
     mut economy: ResMut<GameEconomy>,
     mut spawn_timer: Local<f32>,
     mut alerts: ResMut<GameAlerts>,
+    legacy: Res<LegacyUpgrades>,
 ) {
     if !game_phase.game_started { return; }
     let dt = time.delta_seconds() * game_time.speed_multiplier;
@@ -607,6 +694,7 @@ pub fn hero_attraction_system(
         &sprites,
         class,
         Vec3::new(spawn_pos.x, spawn_pos.y, 10.0),
+        legacy.hero_start_level,
     );
 
     alerts.push(format!("A new {} has arrived!", class.display_name()));
@@ -877,8 +965,13 @@ pub fn recovery_revive_system(
     mut events: EventReader<BountyCompletedEvent>,
     mut heroes: Query<(&mut Hero, &mut HeroStats, &mut HeroState)>,
     mut alerts: ResMut<GameAlerts>,
+    kingdom: Res<KingdomState>,
 ) {
     for event in events.iter() {
+        // Skip recovery during Permanent Death challenge
+        if kingdom.challenge_modifier == ChallengeModifier::PermanentDeath {
+            continue;
+        }
         // Only process Objective bounties that target a specific hero
         if let Some(target_entity) = event.target_entity {
             if let Ok((mut hero, mut stats, mut state)) = heroes.get_mut(target_entity) {
