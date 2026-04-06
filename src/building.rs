@@ -40,6 +40,15 @@ pub fn building_placement_system(
                 None => return,
             };
 
+            // Compute tile coordinates for grid snapping
+            let offset_x = -(GRID_W as f32 * TILE_SIZE / 2.0);
+            let offset_y = -(GRID_H as f32 * TILE_SIZE / 2.0);
+            let tile_x = ((world_pos.x - offset_x) / TILE_SIZE).round() as usize;
+            let tile_y = ((world_pos.y - offset_y) / TILE_SIZE).round() as usize;
+
+            // Snap position to tile center for grid-based placement
+            world_pos = tile_to_world(tile_x, tile_y, offset_x, offset_y);
+
             let cost = selected.cost();
             if economy.gold < cost {
                 alerts.push(format!("Not enough gold! Need {:.0}", cost));
@@ -52,6 +61,7 @@ pub fn building_placement_system(
             }
 
             // Overlap check: prevent placing too close to existing buildings
+            // Use snapped position to ensure accurate spacing
             const BUILDING_MIN_SPACING: f32 = 50.0;
             for (_, transform) in buildings.iter() {
                 let existing_pos = Vec2::new(transform.translation.x, transform.translation.y);
@@ -63,11 +73,6 @@ pub fn building_placement_system(
 
             // Terrain validation: bridges only on water; other buildings not on water
             if let Some(terrain_grid_res) = terrain_grid.as_ref() {
-                let offset_x = -(GRID_W as f32 * TILE_SIZE / 2.0);
-                let offset_y = -(GRID_H as f32 * TILE_SIZE / 2.0);
-                let tile_x = ((world_pos.x - offset_x) / TILE_SIZE).round() as usize;
-                let tile_y = ((world_pos.y - offset_y) / TILE_SIZE).round() as usize;
-
                 if tile_x < GRID_W && tile_y < GRID_H {
                     if let Some(row) = terrain_grid_res.grid.get(tile_x) {
                         if let Some(terrain) = row.get(tile_y) {
@@ -77,8 +82,6 @@ pub fn building_placement_system(
                                     alerts.push("Bridges can only be built on water tiles!".to_string());
                                     return;
                                 }
-                                // Snap bridge position to tile center for proper alignment
-                                world_pos = tile_to_world(tile_x, tile_y, offset_x, offset_y);
                             } else {
                                 if is_water {
                                     alerts.push("Cannot build on water!".to_string());
