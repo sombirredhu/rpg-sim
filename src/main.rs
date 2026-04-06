@@ -226,6 +226,10 @@ fn main() {
         .add_system(ui::update_repair_button_ui)
         .add_system(ui::repair_button_click_system)
         .add_system(ui::update_economy_breakdown_ui)
+        // Legacy Upgrade UI systems
+        .add_system(ui::legacy_button_system)
+        .add_system(ui::legacy_back_button_system)
+        .add_system(ui::update_legacy_upgrades_ui_system)
         // Debug console
         .add_system(debug::debug_console_input)
         .add_system(debug::debug_command_executor)
