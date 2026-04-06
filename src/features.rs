@@ -577,7 +577,7 @@ pub fn resource_bounty_system(
                 b.bounty_type == BountyType::Resource && b.target_entity == Some(entity) && !b.is_completed
             });
             if !has_bounty {
-                bounty_board.add_bounty(BountyType::Resource, 15.0, pos, Some(entity), 1);
+                bounty_board.add_bounty(BountyType::Resource, 15.0, pos, Some(entity), 1, 1);
             }
         }
     }
@@ -660,8 +660,17 @@ pub fn building_bonuses_system(
                 if tier >= 2 { bonuses.alchemist_recovery_speed = 2.0; }
             }
             BuildingType::Barracks => {
-                if tier >= 1 { bonuses.barracks_hero_cap_bonus = 2; }
-                if tier >= 2 { bonuses.barracks_hero_cap_bonus = 5; }
+                if tier >= 1 {
+                    bonuses.barracks_hero_cap_bonus = 2;
+                    bonuses.max_squad_size = 2;
+                }
+                if tier >= 2 {
+                    bonuses.barracks_hero_cap_bonus = 5;
+                    bonuses.max_squad_size = 3;
+                }
+                if tier >= 3 {
+                    bonuses.max_squad_size = 4;
+                }
             }
             BuildingType::WizardTower => {
                 if tier >= 1 { bonuses.wizard_research_bonus = 1.2; }
@@ -797,7 +806,7 @@ pub fn recovery_bounty_system(
                 b.bounty_type == BountyType::Objective && b.target_entity == Some(entity) && !b.is_completed
             });
             if !has_bounty {
-                bounty_board.add_bounty(BountyType::Objective, 20.0, pos, Some(entity), 1);
+                bounty_board.add_bounty(BountyType::Objective, 20.0, pos, Some(entity), 1, 1);
             }
         }
     }
@@ -828,7 +837,7 @@ pub fn objective_bounty_system(
             });
             if !has_bounty {
                 let reward = 25.0 + building.building_type.cost() * 0.1;
-                bounty_board.add_bounty(BountyType::Objective, reward, bpos, Some(b_entity), 2);
+                bounty_board.add_bounty(BountyType::Objective, reward, bpos, Some(b_entity), 2, 2);
             }
         }
     }

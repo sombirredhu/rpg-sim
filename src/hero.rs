@@ -111,7 +111,7 @@ pub fn hero_ai_system(
         if let Some(bounty_id) = current_bounty_id {
             let still_valid = bounty_board
                 .get_bounty(bounty_id)
-                .map(|b| b.assigned_hero == Some(hero_entity))
+                .map(|b| b.assigned_heroes.contains(&hero_entity))
                 .unwrap_or(false);
 
             if still_valid {
@@ -133,8 +133,8 @@ pub fn hero_ai_system(
                 let distance = (bounty.location - hero_pos).length();
                 let danger = bounty.danger_level as f32;
 
-                // Base score from gold reward
-                let mut score = bounty.gold_reward;
+                // Base score from gold reward, adjusted for squad size (each hero's expected share)
+                let mut score = bounty.gold_reward / bounty.required_heroes.max(1) as f32;
 
                 // Distance penalty
                 score -= distance * 0.1;
@@ -377,7 +377,7 @@ pub fn bounty_resolution_system(
             }
         };
 
-        if bounty.assigned_hero != Some(hero_entity) {
+        if !bounty.assigned_heroes.contains(&hero_entity) {
             *state = HeroState::Idle;
             continue;
         }
@@ -423,10 +423,10 @@ pub fn bounty_resolution_system(
         };
 
         if completed {
-            if let Some(reward) = bounty_board.complete_bounty(bounty_id) {
+            if let Some((reward, assigned_heroes)) = bounty_board.complete_bounty(bounty_id) {
                 events.send(BountyCompletedEvent {
                     bounty_id,
-                    hero_entity,
+                    assigned_heroes,
                     gold_reward: reward,
                     target_entity: bounty.target_entity,
                 });

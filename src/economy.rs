@@ -60,16 +60,24 @@ pub fn bounty_payout_system(
 ) {
     for event in events.iter() {
         let reward = event.gold_reward;
+        let hero_count = event.assigned_heroes.len() as f32;
+        if hero_count == 0.0 {
+            continue;
+        }
 
         // Bounties are paid on completion from the treasury.
         economy.gold -= reward;
         economy.total_spent += reward;
 
-        // Pay the hero
-        if let Ok(mut hero) = heroes.get_mut(event.hero_entity) {
-            hero.gold_carried += reward * 0.9; // Hero gets 90%
-            hero.xp += 25.0; // Bonus XP for bounty completion
+        // Split 90% of reward equally among all assigned heroes
+        let hero_share = reward * 0.9 / hero_count;
+        for hero_entity in &event.assigned_heroes {
+            if let Ok(mut hero) = heroes.get_mut(*hero_entity) {
+                hero.gold_carried += hero_share;
+                hero.xp += 25.0; // Bonus XP for bounty completion (full XP for each)
+            }
         }
+
         // 10% bounty tax returns to treasury
         let tax = reward * 0.1;
         economy.gold += tax;
@@ -82,8 +90,9 @@ pub fn bounty_payout_system(
         bounty_board.total_bounty_tax_returned += tax;
 
         alerts.push(format!(
-            "Bounty completed! Hero paid {:.0}g, treasury tax return +{:.0}g",
-            reward * 0.9,
+            "Bounty completed! {} heroes paid {:.0}g each, treasury tax return +{:.0}g",
+            hero_count as u32,
+            hero_share,
             tax
         ));
     }
@@ -117,6 +126,7 @@ pub fn auto_bounty_system(
                 pos,
                 Some(entity),
                 den.threat_tier,
+                1, // required_heroes
             );
         }
     }

@@ -893,21 +893,31 @@ pub fn update_bounty_board_ui(
                 BountyType::Objective => ("<<Shield>>", "Objective"),
                 BountyType::Resource => ("<<Pick>>", "Resource"),
             };
-            let status = if bounty.assigned_hero.is_some() {
+            let required = bounty.required_heroes.max(1);
+            let assigned = bounty.assigned_heroes.len();
+            let status = if assigned == 0 {
+                "Open"
+            } else if assigned >= required as usize {
                 ">> Active"
             } else {
-                "Open"
+                "Part" // partially filled
             };
             let danger_stars: String = (0..bounty.danger_level).map(|_| '*').collect();
+            // Squad size info for squad bounties
+            let squad_info = if required > 1 {
+                format!("  Squad:{}/{}", assigned, required)
+            } else {
+                String::new()
+            };
             info.push_str(&format!(
-                " {} {} - {:.0}g\n   Risk:{} | {}\n",
-                type_icon, type_name, bounty.gold_reward, danger_stars, status
+                " {} {} - {:.0}g{}\n   Risk:{} | {}\n",
+                type_icon, type_name, bounty.gold_reward, squad_info, danger_stars, status
             ));
         }
     }
 
-    let available_count = active.iter().filter(|b| b.assigned_hero.is_none()).count();
-    let in_progress_count = active.iter().filter(|b| b.assigned_hero.is_some()).count();
+    let available_count = active.iter().filter(|b| b.assigned_heroes.len() < b.required_heroes.max(1) as usize).count();
+    let in_progress_count = active.len() - available_count;
     info.push_str(&format!(
         "\nTotal: {} | Avail: {} | Active: {}\n",
         active.len(), available_count, in_progress_count
@@ -1145,6 +1155,7 @@ pub fn build_menu_system(
     keyboard: Res<Input<KeyCode>>,
     mut game_phase: ResMut<GamePhase>,
     kingdom: Res<KingdomState>,
+    building_bonuses: Res<BuildingBonuses>,
     mut alerts: ResMut<GameAlerts>,
 ) {
     // Toggle build mode with B
@@ -1209,8 +1220,8 @@ pub fn build_menu_system(
             game_phase.show_build_menu = false;
             game_phase.selected_building = None;
             alerts.push(format!(
-                "Bounty Board open - Up/Down to adjust amount ({:.0}g) - Click to place",
-                game_phase.manual_bounty_amount
+                "Bounty Board open - Up/Down amount ({:.0}g) - Left/Right squad ({}) - Click to place",
+                game_phase.manual_bounty_amount, game_phase.manual_bounty_squad_size
             ));
         } else {
             alerts.push("Bounty Board closed".to_string());
@@ -1235,6 +1246,19 @@ pub fn build_menu_system(
         }
     }
 
+    // Adjust squad size with Left/Right arrows when bounty board is open
+    if game_phase.bounty_board_open {
+        let max_allowed = building_bonuses.max_squad_size.max(1);
+        if keyboard.just_pressed(KeyCode::Left) {
+            game_phase.manual_bounty_squad_size = (game_phase.manual_bounty_squad_size - 1).max(1);
+            alerts.push(format!("Squad size: {}", game_phase.manual_bounty_squad_size));
+        }
+        if keyboard.just_pressed(KeyCode::Right) {
+            game_phase.manual_bounty_squad_size = (game_phase.manual_bounty_squad_size + 1).min(max_allowed);
+            alerts.push(format!("Squad size: {}", game_phase.manual_bounty_squad_size));
+        }
+    }
+
     // Toggle hero panel with H
     if keyboard.just_pressed(KeyCode::H) && game_phase.game_started {
         game_phase.hero_panel_open = !game_phase.hero_panel_open;
@@ -1252,6 +1276,7 @@ pub fn manual_bounty_system(
     windows: Res<Windows>,
     camera: Query<(&Camera, &Transform, &OrthographicProjection), With<MainCamera>>,
     game_phase: Res<GamePhase>,
+    building_bonuses: Res<BuildingBonuses>,
     mut economy: ResMut<GameEconomy>,
     mut bounty_board: ResMut<BountyBoard>,
     mut alerts: ResMut<GameAlerts>,
@@ -1278,12 +1303,16 @@ pub fn manual_bounty_system(
 
                 // Scale danger estimate based on bounty amount
                 let danger = ((bounty_cost / 50.0) as u32).clamp(1, 5);
+                // Determine required heroes for this manual bounty, respecting Barracks squad cap
+                let max_allowed = building_bonuses.max_squad_size.max(1);
+                let required_heroes = game_phase.manual_bounty_squad_size.min(max_allowed);
                 bounty_board.add_bounty(
                     BountyType::Exploration,
                     bounty_cost,
                     world_pos,
                     None,
                     danger,
+                    required_heroes,
                 );
 
                 alerts.push(format!("Bounty placed at ({:.0}, {:.0}) for {:.0} gold!", world_pos.x, world_pos.y, bounty_cost));

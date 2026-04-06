@@ -455,7 +455,8 @@ pub fn debug_command_executor(
                     target_entity: None,
                     danger_level: 1,
                     is_completed: false,
-                    assigned_hero: None,
+                    assigned_heroes: Vec::new(),
+                    required_heroes: 1,
                 };
                 bounty_board.next_id += 1;
                 bounty_board.bounties.push(bounty);

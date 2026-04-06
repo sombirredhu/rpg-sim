@@ -640,7 +640,8 @@ pub struct Bounty {
     pub danger_level: u32,  // 1-5
     pub is_completed: bool,
     #[serde(skip, default)]
-    pub assigned_hero: Option<Entity>,
+    pub assigned_heroes: Vec<Entity>,
+    pub required_heroes: u32, // Number of heroes needed to form a squad for this bounty (default 1)
 }
 
 // ============================================================
@@ -703,7 +704,7 @@ impl Default for BountyBoard {
 }
 
 impl BountyBoard {
-    pub fn add_bounty(&mut self, bounty_type: BountyType, gold_reward: f32, location: Vec2, target_entity: Option<Entity>, danger_level: u32) -> u32 {
+    pub fn add_bounty(&mut self, bounty_type: BountyType, gold_reward: f32, location: Vec2, target_entity: Option<Entity>, danger_level: u32, required_heroes: u32) -> u32 {
         let id = self.next_id;
         self.next_id += 1;
         self.bounties.push(Bounty {
@@ -714,7 +715,8 @@ impl BountyBoard {
             target_entity,
             danger_level,
             is_completed: false,
-            assigned_hero: None,
+            assigned_heroes: Vec::new(),
+            required_heroes: required_heroes.max(1), // Ensure at least 1
         });
         id
     }
@@ -725,8 +727,9 @@ impl BountyBoard {
 
     pub fn assign_bounty(&mut self, id: u32, hero_entity: Entity) -> bool {
         if let Some(bounty) = self.bounties.iter_mut().find(|b| b.id == id && !b.is_completed) {
-            if bounty.assigned_hero.is_none() || bounty.assigned_hero == Some(hero_entity) {
-                bounty.assigned_hero = Some(hero_entity);
+            let max_allowed = bounty.required_heroes.max(1) as usize;
+            if !bounty.assigned_heroes.contains(&hero_entity) && bounty.assigned_heroes.len() < max_allowed {
+                bounty.assigned_heroes.push(hero_entity);
                 return true;
             }
         }
@@ -735,24 +738,24 @@ impl BountyBoard {
 
     pub fn unassign_hero(&mut self, hero_entity: Entity) {
         for bounty in self.bounties.iter_mut() {
-            if !bounty.is_completed && bounty.assigned_hero == Some(hero_entity) {
-                bounty.assigned_hero = None;
+            if !bounty.is_completed {
+                bounty.assigned_heroes.retain(|e| e != &hero_entity);
             }
         }
     }
 
-    pub fn complete_bounty(&mut self, id: u32) -> Option<f32> {
-        if let Some(bounty) = self.bounties.iter_mut().find(|b| b.id == id) {
+    pub fn complete_bounty(&mut self, id: u32) -> Option<(f32, Vec<Entity>)> {
+        if let Some(bounty) = self.bounties.iter_mut().find(|b| b.id == id && !b.is_completed) {
             bounty.is_completed = true;
-            bounty.assigned_hero = None;
-            Some(bounty.gold_reward)
+            let heroes = std::mem::take(&mut bounty.assigned_heroes);
+            Some((bounty.gold_reward, heroes))
         } else {
             None
         }
     }
 
     pub fn available_bounties(&self) -> Vec<&Bounty> {
-        self.bounties.iter().filter(|b| !b.is_completed && b.assigned_hero.is_none()).collect()
+        self.bounties.iter().filter(|b| !b.is_completed && b.assigned_heroes.len() < b.required_heroes.max(1) as usize).collect()
     }
 
     pub fn cleanup_completed(&mut self) {
@@ -1063,7 +1066,7 @@ pub enum EconIncomeLine {
 
 pub struct BountyCompletedEvent {
     pub bounty_id: u32,
-    pub hero_entity: Entity,
+    pub assigned_heroes: Vec<Entity>,
     pub gold_reward: f32,
     pub target_entity: Option<Entity>, // If this bounty was to revive a specific hero
 }
@@ -1103,6 +1106,7 @@ pub struct GamePhase {
     pub bounty_board_open: bool,
     pub show_build_menu: bool,
     pub manual_bounty_amount: f32,
+    pub manual_bounty_squad_size: u32, // Squad size for manual bounties (requires Barracks for >1)
     pub road_tool_active: bool,
     pub game_started: bool, // True after main menu Start/Resume is clicked
     pub hero_panel_open: bool,
@@ -1116,6 +1120,7 @@ impl Default for GamePhase {
             bounty_board_open: false,
             show_build_menu: false,
             manual_bounty_amount: 30.0,
+            manual_bounty_squad_size: 1,
             road_tool_active: false,
             game_started: false,
             hero_panel_open: true,
@@ -1717,6 +1722,7 @@ pub struct BuildingBonuses {
     pub blacksmith_def_bonus: f32,     // Flat DEF bonus for all heroes
     pub alchemist_recovery_speed: f32, // Reduces death timer
     pub barracks_hero_cap_bonus: u32,  // Extra hero slots
+    pub max_squad_size: u32,           // Max heroes per squad bounty (enabled by Barracks)
     pub wizard_research_bonus: f32,    // Mage damage multiplier
     pub temple_pilgrim_income: f32,    // Tier 3 cathedral income
     // Road connection bonuses
@@ -1735,6 +1741,7 @@ impl Default for BuildingBonuses {
             blacksmith_def_bonus: 0.0,
             alchemist_recovery_speed: 1.0,
             barracks_hero_cap_bonus: 0,
+            max_squad_size: 1,
             wizard_research_bonus: 1.0,
             temple_pilgrim_income: 0.0,
             road_tax_bonus_pct: 0.0,
